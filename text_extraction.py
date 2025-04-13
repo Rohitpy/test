@@ -60,24 +60,35 @@ def explain_image(image_path, processor, model, device):
     
     return explanation
 
-# Create markdown directory if it doesn't exist
-markdown_dir = Path("markdown")
-markdown_dir.mkdir(exist_ok=True)
+def is_scanned_pdf(pdf_path):
+    """Check if PDF is scanned by analyzing text content"""
+    extracted_text = ''.join([page.get_text() for page in fitz.open(pdf_path)])
+    return len(extracted_text.strip()) == 0 or len(extracted_text) < 100
 
-# Create images subdirectory
-images_dir = markdown_dir / "images"
-images_dir.mkdir(exist_ok=True)
+def process_scanned_pdf(pdf_file, output_file, processor, model, device, images_dir):
+    """Process a scanned PDF by treating each page as an image"""
+    for page_index in range(len(pdf_file)):
+        page = pdf_file.load_page(page_index)
+        
+        # Write page header
+        output_file.write(f"# Page {page_index + 1}\n\n")
+        
+        # Convert page to image
+        pix = page.get_pixmap()
+        image_name = f"page_{page_index + 1}.png"
+        image_path = images_dir / image_name
+        pix.save(str(image_path))
+        
+        # Get explanation for the page image
+        explanation = explain_image(str(image_path), processor, model, device)
+        
+        # Write to markdown
+        output_file.write(f"![Page {page_index + 1}](images/{image_name})\n\n")
+        output_file.write(f"*Page {page_index + 1} content:*\n\n{explanation}\n\n")
+        output_file.write("\n---\n\n")
 
-file = "pdfs\Incident Management SOP.pdf"
-pdf_file = fitz.open(file)
-
-processor, model, device = initialize_image_explainer()
-
-# Update output path to use markdown directory
-output_filename = Path(file).stem + "_extracted.md"
-output_path = markdown_dir / output_filename
-
-with open(output_path, "w", encoding="utf-8") as output_file:
+def process_regular_pdf(pdf_file, output_file, processor, model, device, images_dir):
+    """Process a regular PDF with text and images"""
     for page_index in range(len(pdf_file)):
         page = pdf_file.load_page(page_index)
         
@@ -160,5 +171,29 @@ with open(output_path, "w", encoding="utf-8") as output_file:
                             output_file.write(f"{formatted_text}\n\n")
         
         output_file.write("\n---\n\n")  # Page separator
+
+# Main processing logic
+markdown_dir = Path("markdown")
+markdown_dir.mkdir(exist_ok=True)
+
+images_dir = markdown_dir / "images"
+images_dir.mkdir(exist_ok=True)
+
+file = "pdfs\Incident Management SOP.pdf"
+output_filename = Path(file).stem + "_extracted.md"
+output_path = markdown_dir / output_filename
+
+# Check if PDF is scanned
+is_scanned = is_scanned_pdf(file)
+print(f"Processing {'scanned' if is_scanned else 'regular'} PDF...")
+
+pdf_file = fitz.open(file)
+processor, model, device = initialize_image_explainer()
+
+with open(output_path, "w", encoding="utf-8") as output_file:
+    if is_scanned:
+        process_scanned_pdf(pdf_file, output_file, processor, model, device, images_dir)
+    else:
+        process_regular_pdf(pdf_file, output_file, processor, model, device, images_dir)
 
 print(f"Conversion complete. Check '{output_path}' for the Markdown output.")
