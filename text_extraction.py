@@ -5,6 +5,8 @@ import re
 import torch
 from transformers import AutoProcessor, AutoModelForVision2Seq
 from transformers.image_utils import load_image
+import os
+from pathlib import Path
 
 def clean_text_for_markdown(text):
     text = re.sub(r'\s+', ' ', text).strip()
@@ -58,12 +60,24 @@ def explain_image(image_path, processor, model, device):
     
     return explanation
 
+# Create markdown directory if it doesn't exist
+markdown_dir = Path("markdown")
+markdown_dir.mkdir(exist_ok=True)
+
+# Create images subdirectory
+images_dir = markdown_dir / "images"
+images_dir.mkdir(exist_ok=True)
+
 file = "pdfs\Incident Management SOP.pdf"
 pdf_file = fitz.open(file)
 
 processor, model, device = initialize_image_explainer()
 
-with open("Incident Management SOP_extracted_content_with_loc_exact.md", "w", encoding="utf-8") as output_file:
+# Update output path to use markdown directory
+output_filename = Path(file).stem + "_extracted.md"
+output_path = markdown_dir / output_filename
+
+with open(output_path, "w", encoding="utf-8") as output_file:
     for page_index in range(len(pdf_file)):
         page = pdf_file.load_page(page_index)
         
@@ -111,12 +125,13 @@ with open("Incident Management SOP_extracted_content_with_loc_exact.md", "w", en
                 image_ext = base_image["ext"]
                 
                 image_name = f"image{page_index+1}_{image_index}.{image_ext}"
-                with open(image_name, "wb") as image_file:
+                image_path = images_dir / image_name
+                with open(image_path, "wb") as image_file:
                     image_file.write(image_bytes)
-                    print(f"[+] Image saved as {image_name}")
+                    print(f"[+] Image saved as {image_path}")
                 
-                explanation = explain_image(image_name, processor, model, device)
-                output_file.write(f"![Image {page_index+1}_{image_index}]({image_name})\n")
+                explanation = explain_image(str(image_path), processor, model, device)
+                output_file.write(f"![Image {page_index+1}_{image_index}](images/{image_name})\n")
                 output_file.write(f"*Image location: ({rect.x0:.0f}, {rect.y0:.0f}) to ({rect.x1:.0f}, {rect.y1:.0f})*\n\n")
                 output_file.write(f"*Image explanation: {explanation}*\n\n")
             
@@ -146,4 +161,4 @@ with open("Incident Management SOP_extracted_content_with_loc_exact.md", "w", en
         
         output_file.write("\n---\n\n")  # Page separator
 
-print("Conversion complete. Check 'extracted_content.md' for the Markdown output.")
+print(f"Conversion complete. Check '{output_path}' for the Markdown output.")
