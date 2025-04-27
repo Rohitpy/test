@@ -1,9 +1,1 @@
-Dash (v3.0.0): A Python web framework for building analytical web applications, built on top of Flask, Plotly.js, and React.js
-
-Dash Bootstrap Components (v1.5.0): Adds Bootstrap components to Dash for responsive and modern UI layouts
-
-Flask (v3.0.0): The web framework that powers Dash, handles routing and backend operations
-
-Pandas (v1.5.2): Data manipulation library, likely used for handling structured data and dataframes
-
-Plotly (v5.18.0): Interactive visualization library that integrates with Dash for creating charts and graphs
+Specifically, ‘bge’ in ‘bge-large-en-v1.5’ stands for ‘BAAI General Embedding’. BAAI, also known as ‘FlagEmbedding’ on Github, is a private non-profit organization dedicated to AI research and development. Focusing on retrieval-augmented large language models (LLMs), BAAI has launched several related projects. These include long-context LLM (Activation Beacon), LM fine-tuning (LM-Cocktail), dense retrieval (BGE-M3, LLM Embedder, BGE Embedding), reranker model (BGE Reranker), and benchmarking (C-MTEB). Bge-large-en-v1.5 belongs to the BGE Embedding model series, specifically developed for dense retrieval purposes.
