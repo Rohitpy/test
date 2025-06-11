@@ -1,143 +1,44 @@
-import teradatasql
-from typing import List, Dict, Optional
-import logging
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
-class TeradataSchemaExtractor:
-    def __init__(self, host: str, username: str, password: str):
-        """Initialize the Teradata connection parameters."""
-        self.host = host
-        self.username = username
-        self.password = password
-        self.connection = None
-        
-    def connect(self) -> bool:
-        """Establish connection to Teradata database."""
-        try:
-            self.connection = teradatasql.connect(
-                host=self.host,
-                user=self.username,
-                password=self.password
-            )
-            logging.info("Successfully connected to Teradata database")
-            return True
-        except Exception as e:
-            logging.error(f"Failed to connect to database: {str(e)}")
-            return False
-            
-    def get_databases(self) -> List[str]:
-        """Retrieve list of databases."""
-        try:
-            cursor = self.connection.cursor()
-            cursor.execute("SELECT DISTINCT DatabaseName FROM DBC.Databases ORDER BY 1")
-            databases = [row[0] for row in cursor.fetchall()]
-            cursor.close()
-            return databases
-        except Exception as e:
-            logging.error(f"Error fetching databases: {str(e)}")
-            return []
-
-    def get_tables(self, database: str) -> List[Dict]:
-        """Retrieve table information for a specific database."""
-        try:
-            cursor = self.connection.cursor()
-            query = """
-                SELECT 
-                    DatabaseName,
-                    TableName,
-                    CreateTimestamp,
-                    LastAlterTimestamp
-                FROM DBC.Tables
-                WHERE DatabaseName = ?
-                ORDER BY TableName
-            """
-            cursor.execute(query, (database,))
-            tables = []
-            for row in cursor.fetchall():
-                tables.append({
-                    'database': row[0],
-                    'table_name': row[1],
-                    'created_date': row[2],
-                    'last_altered': row[3]
-                })
-            cursor.close()
-            return tables
-        except Exception as e:
-            logging.error(f"Error fetching tables for database {database}: {str(e)}")
-            return []
-
-    def get_columns(self, database: str, table: str) -> List[Dict]:
-        """Retrieve column information for a specific table."""
-        try:
-            cursor = self.connection.cursor()
-            query = """
-                SELECT 
-                    ColumnName,
-                    ColumnType,
-                    ColumnLength,
-                    Nullable
-                FROM DBC.Columns
-                WHERE DatabaseName = ? AND TableName = ?
-                ORDER BY ColumnID
-            """
-            cursor.execute(query, (database, table))
-            columns = []
-            for row in cursor.fetchall():
-                columns.append({
-                    'column_name': row[0],
-                    'data_type': row[1],
-                    'length': row[2],
-                    'nullable': row[3]
-                })
-            cursor.close()
-            return columns
-        except Exception as e:
-            logging.error(f"Error fetching columns for {database}.{table}: {str(e)}")
-            return []
-
-    def close(self):
-        """Close the database connection."""
-        try:
-            if self.connection:
-                self.connection.close()
-                logging.info("Database connection closed successfully")
-        except Exception as e:
-            logging.error(f"Error closing connection: {str(e)}")
-
-def main():
-    # Example usage
-    try:
-        extractor = TeradataSchemaExtractor(
-            host="your_host",
-            username="your_username",
-            password="your_password"
-        )
-        
-        if extractor.connect():
-            # Get all databases
-            databases = extractor.get_databases()
-            for db in databases:
-                print(f"\nDatabase: {db}")
-                
-                # Get tables for each database
-                tables = extractor.get_tables(db)
-                for table in tables:
-                    print(f"\nTable: {table['table_name']}")
-                    
-                    # Get columns for each table
-                    columns = extractor.get_columns(db, table['table_name'])
-                    for column in columns:
-                        print(f"Column: {column['column_name']} - Type: {column['data_type']}")
-        
-    except Exception as e:
-        logging.error(f"Main execution error: {str(e)}")
-    finally:
-        extractor.close()
-
-if __name__ == "__main__":
-    main()
+{
+  "tables": {
+    "metadata": {
+      "description": "Stores information about uploaded documents including details and metadata.",
+      "columns": [
+        {
+          "column": "DOC_ID",
+          "description": "Unique identifier for the document.",
+          "datatype": "INTEGER"
+        },
+        {
+          "column": "DOC_NAME",
+          "description": "The name or title of the document.",
+          "datatype": "TEXT"
+        },
+        {
+          "column": "DESCRIPTION",
+          "description": "A short description or summary of the document.",
+          "datatype": "TEXT"
+        },
+        {
+          "column": "CATEGORY",
+          "description": "The category under which the document falls.",
+          "datatype": "TEXT"
+        },
+        {
+          "column": "FILE_NAME",
+          "description": "Original file name of the uploaded document.",
+          "datatype": "TEXT"
+        },
+        {
+          "column": "FILE_TYPE",
+          "description": "Type/format of the uploaded document (e.g., PDF, DOCX).",
+          "datatype": "TEXT"
+        },
+        {
+          "column": "UPLOADED_BY",
+          "description": "Identifier or name of the user who uploaded the document.",
+          "datatype": "TEXT"
+        }
+      ]
+    }
+  }
+}
