@@ -1,15 +1,18 @@
-from fastapi import FastapI, HTTPException, APIRouter, Depends, status from fastapi security import Auth2PasswordRequestForm from app. services authentication. Idap_auth import AuthService from app.api.schemas.auth import Token
-
-router = APTRouter)
-@router. post("/login", response_model-Token)
-async def login(
-Rohit11 KUMAR, 2 weeks ago • Added ...
-form_data: OAuth2PasswordRequestForm - Depends),
-):
-SVC = AuthService()
-try:
-token - await sc. authenticate(form data.username, form data-password)
-except ValueError as e:
-detail - "Invalid user" if str(e) == "invalid user" else "Invalid credentials" raise HTTPException(
-status_code=status.HTTP_401_UNAUTHORIZED, detail-detail, headers={"WWw-Authenticate": "Bearer"},
-return {"access_token"; token}
+from fastapi import APIRouter, Depends from 3
+from
+app.services.file_metadata.file_metadata_service import FileMetaData
+4
+app.api.schemas.file_metadata import file_metadataQuery
+5
+from app.services.authentication.Idap_auth import get_current_user
+router = APIRouter()
+7
+8
+9
+2
+fmd = FileMetaData( )
+@router-post("/file_metadata", response_model - file_ metadataQuery) async def file_metadata(query:str) :
+result = await fmd. get_query(query)
+return
+'response' :result)
+You, last week • Uncommitted changes
