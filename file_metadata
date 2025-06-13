@@ -1,151 +1,122 @@
-import reguests
-4
-from datetime import datetime, timedelta import jwt
-5
-6
-from Idap? import Server, Connection, ALL, NTLM, SUBTREE, ALL_ATTRIBUTES
-7
-8
-9
-from fastapi import Depends, HTTPException, status from fastapi security import Auth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
-10
-11
-12
-13
-14
-from app.utils.concurrency.concurrency import run_in_thread from app.models.database.db_manager import TeradataManager from app.core.config import settings teradata_manager - TeradataManager ()
-15
-16
-17
-oauth2_scheme = OAuth2PasswordBearer (tokenUrl="/auth/login")
-Rohit11 KUMAR, 3 weeks ago • Add
-18
-security - HTTPBearer (
-19
-20
-21
-22
-23
-credentials_exception - HTTPException( status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials", headers={"WwW-Authenticate": "Bearer"},
-)
-class AuthService:
-27
-def _init_(self):
-29
-self-manager_dn - settings.LDAP_BIND_USER_DN
-30
-self-manager_password - settings. LDAP_BIND_USER_PASSWORD
-31
-self.user_filter - settings.SECURITY_LDAP_USER_FILTER
-32
-self.user_base = se*.•
-33
-34
-self.user _dn = sett (variable) settings: Settings
-self.service_ous = settings.SERVICE_OU
-35
-36
-async def_user_exists(self, username: str) -> bool:
-37
-try:
-38
-39
-40
-41
-42
-query = f"SELECT COUNT(*) FROM US_USER PROFILE WHERE ID -{int (username)}*
-result = await teradata_manager. execute_query_async (query)
-return len (result[0]) > 0
-except Exception as e:
-return False
-43
-44
-45
-46
-def
-_ldap_auth(self, username: str, password: str) -> bool:
-user_dn= 'HBEU\\'+username
-try:
-47
-48
-manager_conn=Connection(self.ldap_server, authentication=NTLM, user=user_dn, password-password, auto_bind-True)
-49
-try:
-50
-51
-52
-53
-54
-55
-def try_bind():
-manager_conn. search
-search_base self.user_base, search_filter-self.user_filter % (username), search_scope-SUBTREE, attributes=ALL_ATTRIBUTES,
-)
-def _1dap_auth(self, username:
-str, password: str) -› bool:
-def try_bind():
-58
-59
-manager_conn. unbind()
-60
-try:
-61
-62
-63
-64
-65
-66
-67
-68
-69
-try_bind()
-return True
-except Exception:
-pass
-return False
-finally:
-manager_conn.unbind()
-except Exception:
-return False
-70
-71
-72
-73
-74
-async def authenticate(self, username: str, password: str) -› str:
-exists - await run_in_thread(self. _user_exists, username) if not exists:
-raise ValueError ("invalid user")
-75
-76
-77
-ok - await run_in_thread(self._ldap_auth, username, password)
-if not ok:
-78
-raise ValueError("invalid_credentials")
-79
-80
-81
-82
-83
-84
-expire - datetime.utenow() + timedelta(minutes=int(settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-token - jwt. encode(
-("sub": username, "exp": expire}, settings-SECRET_KEY, algorithm=settings.ALGORITHM,
-)
-return token
+import logging
+import json
+from typing import Dict, Any
+#from app.models.llm.llm_service import LLMService
+from app.models.database.db_manager import TeradataManager
 
-async def get_current_user (credentials: HTTPAuthorizationCredentials = Depends (security)) -> str:
-try:
-token - credentials.credentials
-payload = jwt.decode(
-token, settings. SECRET_KEY,
-algorithms=[settings.ALGORITHM],
-username: str = payload-get ("sub")
-if not username:
-raise credentials_exception
-except JWTError:
-raise credentials_exception except jwt.ExpiredSignatureError:
-return credentials_exception
-except jwt.InvalidTokenError:
-return credentials_exception
-return username
+logging.basicConfig(level=logging.INFO,
+                   format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Hardcoded schema definition
+DOCUMENT_SCHEMA = {
+    "table_name": "DOCUMENT_METADATA",
+    "columns": [
+        {"name": "DOC_ID", "type": "INTEGER", "description": "Unique identifier for the document"},
+        {"name": "TITLE", "type": "VARCHAR(255)", "description": "Document title"},
+        {"name": "FILE_TYPE", "type": "VARCHAR(50)", "description": "Type of document (PDF, DOCX, etc)"},
+        {"name": "CREATED_DATE", "type": "TIMESTAMP", "description": "Document creation date"},
+        {"name": "MODIFIED_DATE", "type": "TIMESTAMP", "description": "Last modification date"},
+        {"name": "AUTHOR", "type": "VARCHAR(100)", "description": "Document author"},
+        {"name": "DEPARTMENT", "type": "VARCHAR(100)", "description": "Department owning the document"},
+        {"name": "TAGS", "type": "VARCHAR(500)", "description": "Comma-separated tags"},
+        {"name": "STATUS", "type": "VARCHAR(50)", "description": "Document status (ACTIVE, ARCHIVED, etc)"}
+    ]
+}
+
+class FileMetadataService:
+    def __init__(self):
+        #self.llm_service = LLMService()
+        self.db_manager = TeradataManager()
+        self.schema_prompt = self._format_schema_prompt()
+
+    def _format_schema_prompt(self) -> str:
+        """Format the schema into a prompt-friendly string"""
+        prompt = f"Table Name: {DOCUMENT_SCHEMA['table_name']}\nColumns:\n"
+        for col in DOCUMENT_SCHEMA['columns']:
+            prompt += f"- {col['name']} ({col['type']}): {col['description']}\n"
+        return prompt
+
+    async def generate_sql_query(self, user_query: str) -> str:
+        """Generate SQL query using LLM based on schema and user query"""
+        prompt = f"""
+        Based on the following table schema, generate a Teradata SQL query for this user request.
+        
+        {self.schema_prompt}
+        
+        User Query: {user_query}
+        
+        Return only the SQL query without any explanations.
+        """
+        return await "Select * from documents"#self.llm_service.generate_response(prompt)
+
+    async def validate_and_execute_query(self, sql_query: str, user_query: str) -> Dict[str, Any]:
+        """Execute query and handle errors with LLM assistance"""
+        try:
+            results = "Total 5 documents"#await self.db_manager.execute_query_async(sql_query)
+            return {
+                "status": "success",
+                "data": results,
+                "sql_query": sql_query
+            }
+        except Exception as e:
+            error_prompt = f"""
+            The SQL query failed with an error:
+            
+            Original Query: {sql_query}
+            Schema: {self.schema_prompt}
+            User Request: {user_query}
+            Error: {str(e)}
+            
+            Please provide a corrected SQL query.
+            """
+            corrected_query ="Select * from documents" #await self.llm_service.generate_response(error_prompt)
+            return await self.validate_and_execute_query(corrected_query, user_query)
+
+    async def get_query(self, user_query: str) -> Dict[str, Any]:
+        """Main method to process user queries"""
+        try:
+            sql_query = await self.generate_sql_query(user_query)
+            result = await self.validate_and_execute_query(sql_query, user_query)
+            return result
+        except Exception as e:
+            logging.error(f"Query processing failed: {str(e)}")
+            raise
+
+
+from pydantic import BaseModel
+from typing import List, Any, Optional
+
+class FileMetadataRequest(BaseModel):
+    query: str
+    filters: Optional[dict] = None
+
+class FileMetadataResponse(BaseModel):
+    status: str
+    data: List[Any]
+    query: str
+    sql_query: Optional[str] = None
+
+
+from fastapi import APIRouter, Depends, HTTPException
+from app.services.file_metadata.file_metadata_service import FileMetadataService
+from app.api.schemas.file_metadata import FileMetadataRequest, FileMetadataResponse
+from app.services.authentication.ldap_auth import get_current_user
+
+router = APIRouter()
+
+@router.post("/search", response_model=FileMetadataResponse)
+async def search_documents(
+    request: FileMetadataRequest,
+    current_user: str = Depends(get_current_user)
+):
+    try:
+        service = FileMetadataService()
+        result = await service.get_query(request.query)
+        return FileMetadataResponse(
+            status="success",
+            data=result["data"],
+            query=request.query,
+            sql_query=result.get("sql_query")
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
