@@ -1,18 +1,24 @@
-from fastapi import APIRouter, Depends from 3
-from
-app.services.file_metadata.file_metadata_service import FileMetaData
-4
-app.api.schemas.file_metadata import file_metadataQuery
-5
-from app.services.authentication.Idap_auth import get_current_user
-router = APIRouter()
-7
-8
-9
-2
-fmd = FileMetaData( )
-@router-post("/file_metadata", response_model - file_ metadataQuery) async def file_metadata(query:str) :
-result = await fmd. get_query(query)
-return
-'response' :result)
-You, last week • Uncommitted changes
+class ChatMessage(BaseModel):
+"""Chat message model.""*
+role: str - Field(..., description="Role of the message sender (user or assistant)") content: str - Field(.., description-"Content of the message")
+timestamp: Optional[str] - Field(None, description-"Timestamp of when the message was sent")
+message_id: Optional[str] = Field(None, description="Unique ID for the message")
+Siddharth TIWARI, 2 weeks ago | 1 author (Siddharth TIWARI) class ChatRequest(BaseModel):
+"""Chat request model.""*
+message: str = Field(..., description="User message to the chatbot")
+conversation_id: Optional[str] - Field(None, description="ID of existing conversation to continue") use_context: bool - Field(True, description="Whether to use RAG context" )
+
+
+
+class ChatResponse(BaseModel):
+"'"Chat response model.""
+response: str = Field(., description="Chatbot response")
+conversation_id: str - Field(..., description="ID of the conversation")
+sources: List[dict] = Field([], description="Sources used to generate the response")
+history: List[ChatMessage] - Field([], description="Conversation history")
+Siddharth TIWARI, 2 weeks ago | 1 author (Siddharth TIWARI) class ConversationSummary(BaseModel):
+"'"Conversation summary model."""
+id: str - Field(..., description="Conversation ID")
+title: str - Field(..., description="Conversation title")
+created _at: str - Field(..., description="When the conversation was created")
+updated_at: str = Field(..., description="When the conversation was last updated")
