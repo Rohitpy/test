@@ -1,255 +1,151 @@
-class
-TeradataManager:
-→ file_metadata_service.py 2 13
-Singleton Teradata connection manager with thread pooling and async support.
-_instance - None
-_lock - threading-Lock()
-def _new_(cls):
-*"Ensure only one instance exists (Singleton pattern)."** if cls._ instance is None:
-with cls._lock:
-if cls. instance is None:
-return cls. _instance
-cis. instance - super (TeradataManager, cls)-new_(cls)
-I
-det
-_init (self):
-"*"Initialize only once due to singleton pattern."*" if hasattr(self, '_initialized') and self._initialized:
-return
-self.pool_size - getattr(settings, 'TERADATA POOL_SIZE', 10)
-self connection timeout - getattr(settings, 'TERADATA CONNECTION_TIMEOUT"', 10) self-query_timeout - getattr (settings, 'TERADATA_QUERY_TIMEOUT', 300) self-pool recycle - getattr(settings, 'TERADATA POOL_ RECYCLE', 3680)
-self._connection pool - Queue(maxsize=self.pool size)
-self. _active_connections - ()
-self._pool_lock = threading-RLock()
-self. _executor - ThreadPoolExecutorg max workers=self.pool size * 2
-thread_ name_prefix-"teradata worker"
+import reguests
+4
+from datetime import datetime, timedelta import jwt
+5
+6
+from Idap? import Server, Connection, ALL, NTLM, SUBTREE, ALL_ATTRIBUTES
+7
+8
+9
+from fastapi import Depends, HTTPException, status from fastapi security import Auth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+10
+11
+12
+13
+14
+from app.utils.concurrency.concurrency import run_in_thread from app.models.database.db_manager import TeradataManager from app.core.config import settings teradata_manager - TeradataManager ()
+15
+16
+17
+oauth2_scheme = OAuth2PasswordBearer (tokenUrl="/auth/login")
+Rohit11 KUMAR, 3 weeks ago • Add
+18
+security - HTTPBearer (
+19
+20
+21
+22
+23
+credentials_exception - HTTPException( status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials", headers={"WwW-Authenticate": "Bearer"},
+)
+class AuthService:
+27
+def _init_(self):
+29
+self-manager_dn - settings.LDAP_BIND_USER_DN
+30
+self-manager_password - settings. LDAP_BIND_USER_PASSWORD
+31
+self.user_filter - settings.SECURITY_LDAP_USER_FILTER
+32
+self.user_base = se*.•
+33
+34
+self.user _dn = sett (variable) settings: Settings
+self.service_ous = settings.SERVICE_OU
+35
+36
+async def_user_exists(self, username: str) -> bool:
+37
+try:
+38
+39
+40
+41
+42
+query = f"SELECT COUNT(*) FROM US_USER PROFILE WHERE ID -{int (username)}*
+result = await teradata_manager. execute_query_async (query)
+return len (result[0]) > 0
+except Exception as e:
+return False
+43
+44
+45
+46
+def
+_ldap_auth(self, username: str, password: str) -> bool:
+user_dn= 'HBEU\\'+username
+try:
+47
+48
+manager_conn=Connection(self.ldap_server, authentication=NTLM, user=user_dn, password-password, auto_bind-True)
 49
+try:
 50
 51
 52
-self._total_connections - 0
-self._failed_queries - e
-self._total_queries = e
 53
 54
 55
-56
-57
+def try_bind():
+manager_conn. search
+search_base self.user_base, search_filter-self.user_filter % (username), search_scope-SUBTREE, attributes=ALL_ATTRIBUTES,
+)
+def _1dap_auth(self, username:
+str, password: str) -› bool:
+def try_bind():
 58
 59
+manager_conn. unbind()
 60
-self._initialized - True
-logger.info(f"Initialized Teradata connection manager with pool size (self.pool_size)")
-def _create_connection(self):
-•'"Create a new Teradata connection."** try:
+try:
 61
 62
 63
 64
 65
 66
-connection - teradatasq].connectl] host-settings. TERADATA_HOST, user=settings. TERADATA_USER,
-Siddharth TIWARI, 2 weeks ago] Add db maanager and test
-password=settings. TERADATA_PASSWORD,
-ca
-database-settings. TERADATA_DATABASE, connect_timeout=self.connection_timeout
 67
 68
 69
+try_bind()
+return True
+except Exception:
+pass
+return False
+finally:
+manager_conn.unbind()
+except Exception:
+return False
 70
 71
 72
 73
 74
-self._total_connections += 1
-logger debug(f"Created new Teradata connection (total: (self._total_connections))")
-return {
-'connection': connection,
-'created_at': time.time(),
-'last_used': time.time(),
+async def authenticate(self, username: str, password: str) -› str:
+exists - await run_in_thread(self. _user_exists, username) if not exists:
+raise ValueError ("invalid user")
+75
 76
-'last_used': time.time(),
-'query_count': e
 77
+ok - await run_in_thread(self._ldap_auth, username, password)
+if not ok:
 78
+raise ValueError("invalid_credentials")
 79
-except Exception as
 80
 81
-logger error(f"Failed to create Teradata connection: {str(e)}") raise
 82
 83
 84
-85
-86
-87
-88
-@contextmanager def get_connection(self):
-conn_info = None
-"'"Get a connection from the pool with automatic return."**
-thread_id - threading-get_ident()
-try:
-89
-90
-91
-92
-93
-94
-95
-with self._pool_lock:
-if thread_id in self._active_connections:
-conn_info - self._active_connections[thread_id] logger debug("Reusing existing thread connection")
-yield conn_ info[ 'connection' ] return
-96
-97
-try:
-98
-conn_info - self._connection_pool-get (block-False)
-99
-100
-101
-if time time() - conn_info['created_at '] › self.pool recycle:
-self-_close_connection(conn_info[ 'connection'])
+expire - datetime.utenow() + timedelta(minutes=int(settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+token - jwt. encode(
+("sub": username, "exp": expire}, settings-SECRET_KEY, algorithm=settings.ALGORITHM,
+)
+return token
 
-conn_into - self._create_connection()
-except Empty:
-conn_info = self._create_connection()
-with self._pool _lock:
-self. _active_connections[thread_id] - conn_ info
-yield conn_infol 'connection']
-except Exception as e:
-logger.error (f"Error managing connection: {str(e)}™)
-if conn info and 'connection' in conn info:
-self-_close_connection(conn_info[' connection'])
-raise
-finally:
-if conn_info:
-with self._pool_lock:
-self._active_connections.pop(thread_id, None)
-conn_info['last_used'] - time. time()
-conn_info[ query_count'] += 1
+async def get_current_user (credentials: HTTPAuthorizationCredentials = Depends (security)) -> str:
 try:
-self._connection_pool.put_nowait(conn_info)
-except :
-self._ close connection(conn_info['connection'])
-129
-def
-130
-131
-close_connection(self, connection):
-''"Close a connection safely.""" try:
-132
-133
-134
-135
-136
-if
-connection and not connection. closed:
-connection. close()
-except Exception as e:
-logger warning(f"Error closing connection: {str(e)}")
-137
-138
-139
-140
-def execute_query(self, query: str, params: Optional [Any] = None):
-"'"Execute a SQL query using a connection from the pool."** try:
-141
-142
-with self-get_connection)
-as conn:
-cursor = conn.cursor()
-143
-try:
-144
-if params:
-145
-cursor. execute(query, params)
-146
-else:
-147
-I cursor. execute(query)
-148
-149
-150
-if query strip() upper () startswith ("SELECT"):
-result - cursor.fetchall()
-151
-else:
-152
-153
-conn. commit()
-result = cursor. rowcount
-154
-155
-156
-self-_total_queries += 1
-return result
-157
-158
-159
-except Exception as e:
-logger.error(f"Query execution failed: {str(e)}")
-raise
-168
-169
-170
-171
-172
-173
-174
-175
-176
-async def execute_query_async(self, query:
-"'"Execute a SQL query asynchronously."""
-str, params: Optional[Any] = None):
-loop = asyncio-get_running_loop()
-return await loop. run_in_ executor(
-self._executor, self.execute_query, query. params
-177
-178
-179
-180
-181
-182
-183
-184
-185
-186
-def test_connection(self) -> boal:
-"'"Test if the connection is working."*" try:
-self. execute_query ("SELECT 1")
-return True
-except Exception as e:
-logger. error (f"Connection test failed: {str(e)]") return False
-187
-188
-189
-190
-191
-192
-def
-get_stats(self) -> Dict[str, Any]:
-"*"Get basic connection statistics. """ with self._pool_lock:
-active_count - len(self. _active_connections)
-pool_count - self._connection_pool qsize()
-def get_stats(self) -›> Dict[str, Any]:
-_create_connection
-return i
-"total_connections": self. _total_connections,
-"active_connections": active_count,
-"pooled _connections": pool_count,
-"total_queries": self._total_queries,
-"failed_queries": self. _failed_queries
-def shutdown(self):
-"*"Shut down the connection manager."*"
-logger.info("Shutting down Teradata connection manager")
-self._executor.shutdown (wait-True)
-with self._pool lock:
-for conn_info in self._active_connections.values(): self-_close_connection (conn_info[ 'connection'])
-self._active_connections.clear()
-while not self._connection_pool. empty():
-try:
-conn_info - self._connection_pool get_nowait() self._close_connectioff(conn_info[' connection'])
-except:
-logger. info("Teradata connection manager shutdown complete")
-
+token - credentials.credentials
+payload = jwt.decode(
+token, settings. SECRET_KEY,
+algorithms=[settings.ALGORITHM],
+username: str = payload-get ("sub")
+if not username:
+raise credentials_exception
+except JWTError:
+raise credentials_exception except jwt.ExpiredSignatureError:
+return credentials_exception
+except jwt.InvalidTokenError:
+return credentials_exception
+return username
