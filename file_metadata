@@ -22,3 +22,18 @@ id: str - Field(..., description="Conversation ID")
 title: str - Field(..., description="Conversation title")
 created _at: str - Field(..., description="When the conversation was created")
 updated_at: str = Field(..., description="When the conversation was last updated")
+
+Siddharth TIWARI, 2 weeks ago | 1 author (Siddharth TIWARI) class ChatRequest (BaseModel):
+"*"Chat request model. """
+message: str = Field(..., description="User message to the chatbot")
+conversation_id: Optional[str] - Field(None, description-"ID of existing conversation to continue") use_context: bool - Field(True, description="Whether to use RAG context")
+
+class ConversationSummary (BaseModel):
+••"Conversation summary model."™*
+id: str - Field(..., description="Conversation ID")
+title: str - Field(..., description-"Conversation title")
+created_at: str = Field(..., description="When the conversation was created")
+updated _at:
+str = Field(..., description="When the conversation was last updated")
+
+
