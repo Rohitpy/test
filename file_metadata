@@ -1,39 +1,94 @@
-class ChatMessage(BaseModel):
-"""Chat message model.""*
-role: str - Field(..., description="Role of the message sender (user or assistant)") content: str - Field(.., description-"Content of the message")
-timestamp: Optional[str] - Field(None, description-"Timestamp of when the message was sent")
-message_id: Optional[str] = Field(None, description="Unique ID for the message")
-Siddharth TIWARI, 2 weeks ago | 1 author (Siddharth TIWARI) class ChatRequest(BaseModel):
-"""Chat request model.""*
-message: str = Field(..., description="User message to the chatbot")
-conversation_id: Optional[str] - Field(None, description="ID of existing conversation to continue") use_context: bool - Field(True, description="Whether to use RAG context" )
+logging.basicConfig(
+file_metadata_service.py › C main
+13
+level-logging.INFO,
+14
+format=*%(asctime)s - %(levelname)s - %(message)s'
+15
+16
+17
+18
+19
+class TeradataSchemaExtractor:
+def
+20
+_init_(self, table_name):
+"*"Initialize."*"
+21
+22
+self.table_name = table_name
+23
+24
+async def get_table_schema(self):
+25
+26
+"*"Get schema for a specific table"""
+27
+if self.table_name.upper() I- ''*:
+28
+29
+raise HTTPException(status_code=403, detail="Access to this table is not allowed")
+30
+query - f"HELP TABLE {self. table_name}"
+31
+32
+success, result - teradata_manager-execute_query_async (query) if success:
+33
+return {"schema": result}
+34
+else:
+35
+raise HTTPException(status_code=500, detail-result)
+36
+except Exception as e:
+37
+raise HTTPException(status_code=500, detail-str(e))
+def main():
+* Example usage try:
+100
+101
+extractor - TeradataSchemaExtractor(
+102
+103
+104
+105
+106
+107
+108
+if extractor. connect):
+# Get all databases
+databases : extractor•gef_databases()
+for db in databases:
+print (f" \nDatabase: {db}")
+109
+110
+111
+112
+# Get tables for each database
+tables - extractor-get_tables(db) for table in tables:
+print(f"'InTable: (table['table _name']}")
+113
+114
+115
+116
+117
+# Get columns for each table
+columns - extractor-get_columns(db, table[ 'table_name']) for column in columns:
+print(f"Column: {column[' column_name'1} - Type: {column[ 'data_type"]}")
+118
+119
+120
+121
+122
+except Exception as e:
+logging-error (f"Main execution error: {str(e)}")
+finally:
+extractor.close)
+123
+124
+if
+125
 
-
-
-class ChatResponse(BaseModel):
-"'"Chat response model.""
-response: str = Field(., description="Chatbot response")
-conversation_id: str - Field(..., description="ID of the conversation")
-sources: List[dict] = Field([], description="Sources used to generate the response")
-history: List[ChatMessage] - Field([], description="Conversation history")
-Siddharth TIWARI, 2 weeks ago | 1 author (Siddharth TIWARI) class ConversationSummary(BaseModel):
-"'"Conversation summary model."""
-id: str - Field(..., description="Conversation ID")
-title: str - Field(..., description="Conversation title")
-created _at: str - Field(..., description="When the conversation was created")
-updated_at: str = Field(..., description="When the conversation was last updated")
-
-Siddharth TIWARI, 2 weeks ago | 1 author (Siddharth TIWARI) class ChatRequest (BaseModel):
-"*"Chat request model. """
-message: str = Field(..., description="User message to the chatbot")
-conversation_id: Optional[str] - Field(None, description-"ID of existing conversation to continue") use_context: bool - Field(True, description="Whether to use RAG context")
-
-class ConversationSummary (BaseModel):
-••"Conversation summary model."™*
-id: str - Field(..., description="Conversation ID")
-title: str - Field(..., description-"Conversation title")
-created_at: str = Field(..., description="When the conversation was created")
-updated _at:
-str = Field(..., description="When the conversation was last updated")
-
-
+name
+main()
+= "_main_":
