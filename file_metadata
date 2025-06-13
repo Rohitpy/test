@@ -1,94 +1,133 @@
-logging.basicConfig(
-file_metadata_service.py › C main
-13
-level-logging.INFO,
-14
-format=*%(asctime)s - %(levelname)s - %(message)s'
-15
-16
-17
-18
-19
-class TeradataSchemaExtractor:
-def
-20
-_init_(self, table_name):
-"*"Initialize."*"
-21
-22
-self.table_name = table_name
-23
-24
-async def get_table_schema(self):
-25
-26
-"*"Get schema for a specific table"""
-27
-if self.table_name.upper() I- ''*:
-28
-29
-raise HTTPException(status_code=403, detail="Access to this table is not allowed")
-30
-query - f"HELP TABLE {self. table_name}"
-31
-32
-success, result - teradata_manager-execute_query_async (query) if success:
-33
-return {"schema": result}
-34
-else:
-35
-raise HTTPException(status_code=500, detail-result)
-36
-except Exception as e:
-37
-raise HTTPException(status_code=500, detail-str(e))
-def main():
-* Example usage try:
+class
+TeradataManager:
+→ file_metadata_service.py 2 13
+Singleton Teradata connection manager with thread pooling and async support.
+_instance - None
+_lock - threading-Lock()
+def _new_(cls):
+*"Ensure only one instance exists (Singleton pattern)."** if cls._ instance is None:
+with cls._lock:
+if cls. instance is None:
+return cls. _instance
+cis. instance - super (TeradataManager, cls)-new_(cls)
+I
+det
+_init (self):
+"*"Initialize only once due to singleton pattern."*" if hasattr(self, '_initialized') and self._initialized:
+return
+self.pool_size - getattr(settings, 'TERADATA POOL_SIZE', 10)
+self connection timeout - getattr(settings, 'TERADATA CONNECTION_TIMEOUT"', 10) self-query_timeout - getattr (settings, 'TERADATA_QUERY_TIMEOUT', 300) self-pool recycle - getattr(settings, 'TERADATA POOL_ RECYCLE', 3680)
+self._connection pool - Queue(maxsize=self.pool size)
+self. _active_connections - ()
+self._pool_lock = threading-RLock()
+self. _executor - ThreadPoolExecutorg max workers=self.pool size * 2
+thread_ name_prefix-"teradata worker"
+49
+50
+51
+52
+self._total_connections - 0
+self._failed_queries - e
+self._total_queries = e
+53
+54
+55
+56
+57
+58
+59
+60
+self._initialized - True
+logger.info(f"Initialized Teradata connection manager with pool size (self.pool_size)")
+def _create_connection(self):
+•'"Create a new Teradata connection."** try:
+61
+62
+63
+64
+65
+66
+connection - teradatasq].connectl] host-settings. TERADATA_HOST, user=settings. TERADATA_USER,
+Siddharth TIWARI, 2 weeks ago] Add db maanager and test
+password=settings. TERADATA_PASSWORD,
+ca
+database-settings. TERADATA_DATABASE, connect_timeout=self.connection_timeout
+67
+68
+69
+70
+71
+72
+73
+74
+self._total_connections += 1
+logger debug(f"Created new Teradata connection (total: (self._total_connections))")
+return {
+'connection': connection,
+'created_at': time.time(),
+'last_used': time.time(),
+76
+'last_used': time.time(),
+'query_count': e
+77
+78
+79
+except Exception as
+80
+81
+logger error(f"Failed to create Teradata connection: {str(e)}") raise
+82
+83
+84
+85
+86
+87
+88
+@contextmanager def get_connection(self):
+conn_info = None
+"'"Get a connection from the pool with automatic return."**
+thread_id - threading-get_ident()
+try:
+89
+90
+91
+92
+93
+94
+95
+with self._pool_lock:
+if thread_id in self._active_connections:
+conn_info - self._active_connections[thread_id] logger debug("Reusing existing thread connection")
+yield conn_ info[ 'connection' ] return
+96
+97
+try:
+98
+conn_info - self._connection_pool-get (block-False)
+99
 100
 101
-extractor - TeradataSchemaExtractor(
-102
-103
-104
-105
-106
-107
-108
-if extractor. connect):
-# Get all databases
-databases : extractor•gef_databases()
-for db in databases:
-print (f" \nDatabase: {db}")
-109
-110
-111
-112
-# Get tables for each database
-tables - extractor-get_tables(db) for table in tables:
-print(f"'InTable: (table['table _name']}")
-113
-114
-115
-116
-117
-# Get columns for each table
-columns - extractor-get_columns(db, table[ 'table_name']) for column in columns:
-print(f"Column: {column[' column_name'1} - Type: {column[ 'data_type"]}")
-118
-119
-120
-121
-122
-except Exception as e:
-logging-error (f"Main execution error: {str(e)}")
-finally:
-extractor.close)
-123
-124
-if
-125
+if time time() - conn_info['created_at '] › self.pool recycle:
+self-_close_connection(conn_info[ 'connection'])
 
-name
-main()
-= "_main_":
+conn_into - self._create_connection()
+except Empty:
+conn_info = self._create_connection()
+with self._pool _lock:
+self. _active_connections[thread_id] - conn_ info
+yield conn_infol 'connection']
+except Exception as e:
+logger.error (f"Error managing connection: {str(e)}™)
+if conn info and 'connection' in conn info:
+self-_close_connection(conn_info[' connection'])
+raise
+finally:
+if conn_info:
+with self._pool_lock:
+self._active_connections.pop(thread_id, None)
+conn_info['last_used'] - time. time()
+conn_info[ query_count'] += 1
+try:
+self._connection_pool.put_nowait(conn_info)
+except :
+self._ close connection(conn_info['connection'])
