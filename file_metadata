@@ -1,7 +1,8 @@
 import logging
 import json
-from typing import Dict, Any
-#from app.models.llm.llm_service import LLMService
+from typing import Dict, Any, List
+import pandas as pd
+from app.models.llm.llm_service import LLMService
 from app.models.database.db_manager import TeradataManager
 
 logging.basicConfig(level=logging.INFO,
@@ -9,7 +10,7 @@ logging.basicConfig(level=logging.INFO,
 
 # Hardcoded schema definition
 DOCUMENT_SCHEMA = {
-    "table_name": "DOCUMENT_METADATA",
+    "table_name": "DO_DOCUMENTS",
     "columns": [
         {"name": "DOC_ID", "type": "INTEGER", "description": "Unique identifier for the document"},
         {"name": "TITLE", "type": "VARCHAR(255)", "description": "Document title"},
@@ -25,7 +26,7 @@ DOCUMENT_SCHEMA = {
 
 class FileMetadataService:
     def __init__(self):
-        #self.llm_service = LLMService()
+        self.llm_service = LLMService()
         self.db_manager = TeradataManager()
         self.schema_prompt = self._format_schema_prompt()
 
@@ -47,16 +48,46 @@ class FileMetadataService:
         
         Return only the SQL query without any explanations.
         """
-        return await "Select * from documents"#self.llm_service.generate_response(prompt)
+        return "Select * from documents" # await self.llm_service.generate_simple_response(prompt)
+
+    def _format_results_for_llm(self, results: List[tuple], sql_query: str) -> str:
+        """Convert database results to a readable format for LLM"""
+        # Convert results to DataFrame for easier handling
+        columns = [col["name"] for col in DOCUMENT_SCHEMA["columns"]]
+        df = pd.DataFrame(results, columns=columns)
+        
+        # Convert DataFrame to string representation
+        data_str = df.to_string() if not df.empty else "No results found"
+        
+        return f"""
+        SQL Query Executed: {sql_query}
+        
+        Query Results:
+        {data_str}
+        
+        Please provide a natural language summary of these results.
+        Focus on key information and any patterns or insights in the data.
+        """
+
+    async def _generate_human_readable_summary(self, results: List[tuple], sql_query: str) -> str:
+        """Generate human-readable summary of results using LLM"""
+        prompt = self._format_results_for_llm(results, sql_query)
+        return await self.llm_service.generate_response(prompt)
 
     async def validate_and_execute_query(self, sql_query: str, user_query: str) -> Dict[str, Any]:
         """Execute query and handle errors with LLM assistance"""
         try:
-            results = "Total 5 documents"#await self.db_manager.execute_query_async(sql_query)
+            results = await self.db_manager.execute_query_async(sql_query)
+            
+            # Generate human-readable summary
+            summary = await self._generate_human_readable_summary(results, sql_query)
+            
             return {
                 "status": "success",
                 "data": results,
-                "sql_query": sql_query
+                "sql_query": sql_query,
+                "summary": summary,
+                "raw_data": results  # Include raw data for potential further processing
             }
         except Exception as e:
             error_prompt = f"""
@@ -69,10 +100,10 @@ class FileMetadataService:
             
             Please provide a corrected SQL query.
             """
-            corrected_query ="Select * from documents" #await self.llm_service.generate_response(error_prompt)
+            corrected_query = await self.llm_service.generate_response(error_prompt)
             return await self.validate_and_execute_query(corrected_query, user_query)
 
-    async def get_query(self, user_query: str) -> Dict[str, Any]:
+    async def get_metadata(self, user_query: str) -> Dict[str, Any]:
         """Main method to process user queries"""
         try:
             sql_query = await self.generate_sql_query(user_query)
@@ -84,23 +115,26 @@ class FileMetadataService:
 
 
 from pydantic import BaseModel
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Union
 
 class FileMetadataRequest(BaseModel):
     query: str
-    filters: Optional[dict] = None
 
 class FileMetadataResponse(BaseModel):
     status: str
-    data: List[Any]
+    data: Union[List[Any], Any]
     query: str
     sql_query: Optional[str] = None
+    summary: Optional[str] = None  # Human-readable summary
+    raw_data: Optional[List[Any]] = None  # Raw database results
+
 
 
 from fastapi import APIRouter, Depends, HTTPException
 from app.services.file_metadata.file_metadata_service import FileMetadataService
 from app.api.schemas.file_metadata import FileMetadataRequest, FileMetadataResponse
 from app.services.authentication.ldap_auth import get_current_user
+from typing import List
 
 router = APIRouter()
 
@@ -111,12 +145,15 @@ async def search_documents(
 ):
     try:
         service = FileMetadataService()
-        result = await service.get_query(request.query)
+        result = await service.get_metadata(request.query)
+        
         return FileMetadataResponse(
             status="success",
             data=result["data"],
             query=request.query,
-            sql_query=result.get("sql_query")
+            sql_query=result.get("sql_query"),
+            summary=result.get("summary"),
+            raw_data=result.get("raw_data")
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
