@@ -26,82 +26,102 @@ DOCUMENT_SCHEMA = {
 
 class FileMetadataService:
     def __init__(self):
-        self.llm_service = LLMService()
-        self.db_manager = TeradataManager()
-        self.schema_prompt = self._format_schema_prompt()
+        try:
+            self.llm_service = LLMService()
+            self.db_manager = TeradataManager()
+            self.schema_prompt = self._format_schema_prompt()
+        except Exception as e:
+            logging.error(f"Failed to initialize FileMetadataService: {str(e)}")
+            raise
 
     def _format_schema_prompt(self) -> str:
         """Format the schema into a prompt-friendly string"""
-        prompt = f"Table Name: {DOCUMENT_SCHEMA['table_name']}\nColumns:\n"
-        for col in DOCUMENT_SCHEMA['columns']:
-            prompt += f"- {col['name']} ({col['type']}): {col['description']}\n"
-        return prompt
+        try:
+            prompt = f"Table Name: {DOCUMENT_SCHEMA['table_name']}\nColumns:\n"
+            for col in DOCUMENT_SCHEMA['columns']:
+                prompt += f"- {col['name']} ({col['type']}): {col['description']}\n"
+            return prompt
+        except Exception as e:
+            logging.error(f"Failed to format schema prompt: {str(e)}")
+            raise
 
     async def generate_sql_query(self, user_query: str) -> str:
         """Generate SQL query using LLM based on schema and user query"""
-        prompt = f"""
-        Based on the following table schema, generate a Teradata SQL query for this user request.
-        
-        {self.schema_prompt}
-        
-        User Query: {user_query}
-        
-        Return only the SQL query without any explanations.
-        """
-        return "Select * from documents" # await self.llm_service.generate_simple_response(prompt)
+        try:
+            prompt = f"""
+            Based on the following table schema, generate a Teradata SQL query for this user request.
+            
+            {self.schema_prompt}
+            
+            User Query: {user_query}
+            
+            Return only the SQL query without any explanations.
+            """
+            return await self.llm_service.generate_response(prompt)
+        except Exception as e:
+            logging.error(f"Failed to generate SQL query: {str(e)}")
+            raise
 
     def _format_results_for_llm(self, results: List[tuple], sql_query: str) -> str:
         """Convert database results to a readable format for LLM"""
-        # Convert results to DataFrame for easier handling
-        columns = [col["name"] for col in DOCUMENT_SCHEMA["columns"]]
-        df = pd.DataFrame(results, columns=columns)
-        
-        # Convert DataFrame to string representation
-        data_str = df.to_string() if not df.empty else "No results found"
-        
-        return f"""
-        SQL Query Executed: {sql_query}
-        
-        Query Results:
-        {data_str}
-        
-        Please provide a natural language summary of these results.
-        Focus on key information and any patterns or insights in the data.
-        """
+        try:
+            columns = [col["name"] for col in DOCUMENT_SCHEMA["columns"]]
+            df = pd.DataFrame(results, columns=columns)
+            data_str = df.to_string() if not df.empty else "No results found"
+            
+            return f"""
+            SQL Query Executed: {sql_query}
+            
+            Query Results:
+            {data_str}
+            
+            Please provide a natural language summary of these results.
+            Focus on key information and any patterns or insights in the data.
+            """
+        except Exception as e:
+            logging.error(f"Failed to format results for LLM: {str(e)}")
+            raise
 
     async def _generate_human_readable_summary(self, results: List[tuple], sql_query: str) -> str:
         """Generate human-readable summary of results using LLM"""
-        prompt = self._format_results_for_llm(results, sql_query)
-        return await self.llm_service.generate_response(prompt)
+        try:
+            prompt = self._format_results_for_llm(results, sql_query)
+            return await self.llm_service.generate_response(prompt)
+        except Exception as e:
+            logging.error(f"Failed to generate human readable summary: {str(e)}")
+            raise
 
     async def validate_and_execute_query(self, sql_query: str, user_query: str) -> Dict[str, Any]:
         """Execute query and handle errors with LLM assistance"""
         try:
-            results = await self.db_manager.execute_query_async(sql_query)
-            
-            # Generate human-readable summary
-            summary = await self._generate_human_readable_summary(results, sql_query)
-            
-            return {
-                "status": "success",
-                "data": results,
-                "sql_query": sql_query,
-                "summary": summary,
-                "raw_data": results  # Include raw data for potential further processing
-            }
+            try:
+                results = await self.db_manager.execute_query_async(sql_query)
+                summary = await self._generate_human_readable_summary(results, sql_query)
+                
+                return {
+                    "status": "success",
+                    "data": results,
+                    "sql_query": sql_query,
+                    "summary": summary,
+                    "raw_data": results
+                }
+            except Exception as query_error:
+                logging.error(f"Query execution failed: {str(query_error)}")
+                error_prompt = f"""
+                The SQL query failed with an error:
+                
+                Original Query: {sql_query}
+                Schema: {self.schema_prompt}
+                User Request: {user_query}
+                Error: {str(query_error)}
+                
+                Please provide a corrected SQL query.
+                """
+                corrected_query = await self.llm_service.generate_response(error_prompt)
+                return await self.validate_and_execute_query(corrected_query, user_query)
         except Exception as e:
-            error_prompt = f"""
-            The SQL query failed with an error:
-            
-            Original Query: {sql_query}
-            Schema: {self.schema_prompt}
-            User Request: {user_query}
-            Error: {str(e)}
-            
-            Please provide a corrected SQL query.
-            """
-            corrected_query = await self.llm_service.generate_response(error_prompt)
-            return await self.validate_and_execute_query(corrected_query, user_query)
+            logging.error(f"Failed to validate and execute query: {str(e)}")
+            raise
 
     async def get_metadata(self, user_query: str) -> Dict[str, Any]:
         """Main method to process user queries"""
@@ -111,49 +131,8 @@ class FileMetadataService:
             return result
         except Exception as e:
             logging.error(f"Query processing failed: {str(e)}")
-            raise
-
-
-from pydantic import BaseModel
-from typing import List, Any, Optional, Union
-
-class FileMetadataRequest(BaseModel):
-    query: str
-
-class FileMetadataResponse(BaseModel):
-    status: str
-    data: Union[List[Any], Any]
-    query: str
-    sql_query: Optional[str] = None
-    summary: Optional[str] = None  # Human-readable summary
-    raw_data: Optional[List[Any]] = None  # Raw database results
-
-
-
-from fastapi import APIRouter, Depends, HTTPException
-from app.services.file_metadata.file_metadata_service import FileMetadataService
-from app.api.schemas.file_metadata import FileMetadataRequest, FileMetadataResponse
-from app.services.authentication.ldap_auth import get_current_user
-from typing import List
-
-router = APIRouter()
-
-@router.post("/search", response_model=FileMetadataResponse)
-async def search_documents(
-    request: FileMetadataRequest,
-    current_user: str = Depends(get_current_user)
-):
-    try:
-        service = FileMetadataService()
-        result = await service.get_metadata(request.query)
-        
-        return FileMetadataResponse(
-            status="success",
-            data=result["data"],
-            query=request.query,
-            sql_query=result.get("sql_query"),
-            summary=result.get("summary"),
-            raw_data=result.get("raw_data")
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            raise {
+                "status": "error",
+                "error": str(e),
+                "query": user_query
+            }
