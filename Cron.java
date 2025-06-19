@@ -130,6 +130,19 @@ dataUser.add(map) ;
 }
 }
 }
+currGrpUsrList.parallelStream().forEach(user -> (
+if (lexistingUsersUg.contains(user) && (UserConstants.ALL.equalsIgnoreCase(1dap.getActionType())
+| UserConstants.ADD.equalsIgnoreCase(ldap-getActionType())))€
+HashMap<String, String > map = new HashMap<String, String>();
+map. put ("USER_ID", user);
+map-put ("USER_GROUP_NAME", 1dap. getGroupName ());
+map. put (CommonConstants.SYS_RECORD_STATE, CommonConstants. ACTIVE);
+dataUGAdd. add (map)
+  }
+});
+
+
+  
   
   
 
