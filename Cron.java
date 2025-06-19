@@ -50,6 +50,45 @@ private String userDn;
 private boolean enableLdap;
 eValue("${security.ldap.group-filter]")
 private String groupfilter;
-private final SessionFactory sessionFactory; private final JSONPersistenceService jos;
+private final SessionFactory sessionFactory; private final JSONPersistenceService jbs;
+
+@Scheduled(fixedRate = 600000)
+public void executeTask) {
+log. info("Checking for new users if any");
+if (lenableLdap)
+return;
+try (Session session = sessionFactory-openSession) {
+SecurityContextHolder -getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+UserDto. builder () id(user).build(), null, Collections.emptyList));
+MDC. put (CommonConstants .APP_URL, "**);
+MDC. put (CommonConstants-TRACKING_NUMBER, UUID. randomUID(). toString®);
+MDC. put (CommonConstants.USER_ID, user);
+List‹User> users = session.createNativeQuery (UserConstants. GET_ACTIVE_USERS, User.class) list();
+ConcurrentHashMap<String, User> userMap = new ConcurrentHashMap<>©; users-parallelStream(). forEach(k -> ( userMap. put (k.getId(), k) ;
+7) :
+userMap. remove (user) ;
+List<LDAPUserAutoCreation> ldapDetails = session
+•createNativeQuery (UserConstants.GET_LDAP_DETAILS, LDAPUserAutoCreation.class).list();
+
+Hashtable<String, String> environment = new Hashtable‹String, String>(); environment.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+environment.put(Context.PROVIDER_URL, 1dapUr1);
+environment.put (Context.SECURITY_AUTHENTICATION, "simple");
+environment.put (Context SECURITY_PRINCIPAL, managerDn) ;
+environment.put (Context.SECURITY_CREDENTIALS, cys.decrypt(managerPassword));
+HashMap<String, Boolean> alreadyProcessed = new HashMap<>);
+LdapContext context = new InitialLdapContext(environment, null);
+CRUDObject crObjUser = CRUDObject. builder (). tableName("User") -phyTableName ("US_MST_USER_PROFILE"). build();
+CRUDObject crObjUG = CRUDObject. builder (). tableName("UserUGRelation") -phyTableName("US_MST_USER_GROUP_MAP")
+-build();
+List<HashMap<String, String>> dataUser = Collections
+•synchronizedList(new ArrayList<HashMap<String, String>>0);
+crobjUser.setData (dataUser);
+I
+List<HashMap<String, String>> dataUGDel = Collections
+•synchronizedList(new ArrayList<HashMap<String, String>>O);
+List<HashMap<String, String>> dataUGAdd = Collections
+•synchronizedList(new ArrayList<HashMap<String, String>>);
+
+
 
 
