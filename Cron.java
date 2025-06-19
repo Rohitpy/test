@@ -89,6 +89,30 @@ List<HashMap<String, String>> dataUGDel = Collections
 List<HashMap<String, String>> dataUGAdd = Collections
 •synchronizedList(new ArrayList<HashMap<String, String>>);
 
+try {
+for (int i = 0; i ‹ ldapDetails.size(); i++) {
+LDAPUserAutoCreation ldap = ldapDetails.get(i);
+HashSet<String> currGrpUsrList = new HashSet>;
+List<UserGroupMap> ugUsersList = new ArrayList<>);
+HashSet<String> existingUsersUg = new HashSet<>();
+ugUsersList = session.createNativeQuery(UserConstants.USER_UG_RELATION, UserGroupMap.class)
+• setParameter (1, Idap. getGroupName()) list();
+ugUsersList.stream().forEach(user -> t
+existingUsersUg.add(user.getUserId();
+}) ;
+String searchFilter = String format("(&(objectclass=group) (cn=%s))", 1dap-getGroupName);
+String searchBase = Idap.getSearchBase (
+SearchControls searchControls = new SearchControls);
+searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE); searchControls.setReturningAttributes (new String[] { "member" }) ;
+NamingEnumeration<SearchResult> results = context.search(searchBase,
+searchFilter, searchControls);
+if (results.hasMore)) €
+SearchResult result = results.next();
+Attributes attrs = result. getAttributes();
+Attribute members = attrs.get ("member");
+if (members != null) {
+  
+
 
 
 
