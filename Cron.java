@@ -152,7 +152,28 @@ dataUGDel.add(map) ;
 }
 });
 }
+} finally {
+context.close();
+if (dataUser.size() > 0) {
+jps-processData (crObjUser);
+if (dataUGAdd.size () > 0) {
+crObjUG. setData(dataUGAdd) ;
+jps.processData(crObjUG);
+if (dataUGDel.size() > 0) {
+crobjUG. setPersistType(CommonConstants.DELETE) ;
+crobjUG.setData(dataUGDel);
+jps.processDeleteDataLimited(crObjUG);
+catch (Exception e) {
+log,error("Auto User Creation Failed ", e);
+Finally {
+SecurityContextHolder.clearContext();
+MDC. remove(CommonConstants.TRACKING_MUMBER) ;
+MDC. remove(CommonConstants.USER_ID);
+MDC. renove(ComnonConstants.APP_URL);
+}
 
+}
+}
   
   
   
