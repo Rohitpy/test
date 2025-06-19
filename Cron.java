@@ -111,6 +111,26 @@ SearchResult result = results.next();
 Attributes attrs = result. getAttributes();
 Attribute members = attrs.get ("member");
 if (members != null) {
+
+  for (int j= 0; j‹ members.size); j++) f
+Attributes at - context.getAttributes (members-get(j).toString());
+String id - (String) at-get("cn") -get(); currGrpUsrList.add(id);
+if (userMap.containskey(id)) €
+alreadyProcessed.put (id, true); userMap.remove(id);
+continues
+
+if (alreadyProcessed.containsKey(id)) {
+continue;
+alreadyProcessed.put (id, true);
+HashMap<String, String> map = new HashMap<String, String>();
+map. put ("ID", idi:
+map. put ("FIRST_NAME", (String) at.get ("givenName") • setO): map. put ("LAST_NAME", (String) at-get ("sn") • getO); map. put ("EMAIL_ADDRESS", (String) at.get("mail") -getO); map. put ("STATUS", "ACTIVE");
+map. put ("USER_PASSWORD", "LKCL35M1rtGYnSMPOHNkrQ==");
+dataUser.add(map) ;
+}
+}
+}
+  
   
 
 
