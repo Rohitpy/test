@@ -140,7 +140,18 @@ map. put (CommonConstants.SYS_RECORD_STATE, CommonConstants. ACTIVE);
 dataUGAdd. add (map)
   }
 });
+existingUsersUg.parallelStream().forEach(user -> €
+if (IcurrGrpUsrList contains(usec) && (UserConstants.ALL.equalsIgnoneCase(1dap.getActionType())
+|| UserConstants.DELETE.equalsIgnoreCase(ldap.getActionType()))) {
+HashMap<String, String> map = new HashMap<String, String>0;
+map.put ("USER_ID", user) ;
+map. put ("USER_GROUP_NAME", Idap, getaroupName());
+map.put (CommonConstants.SY5_RECORD_STATE, CommonConstants.DELETED) ;
+dataUGDel.add(map) ;
 
+}
+});
+}
 
   
   
