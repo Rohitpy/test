@@ -30,3 +30,26 @@ import lombok.extern.s1f4j.S1f45;
 @Component
 @RequiredAngsConstructon
 ¿ConditionalOnPropenty (value = "security.ldap.auto,user,creation", havingValue - "true")
+public class UserCreationProcessTrigger {
+private final CryptionService cys;
+eValue ("${app.default.user}")
+private String user;
+@Value("S{security.ldap.ur1}")
+private String ldapUrl;
+@Value ("$(secuirty.ldap.manager-dn}")
+private String managerDn;
+@Value("$(security.ldap.manager-password}")
+private String managerPassword;
+@Value ("$(security.1dap.user-filter)")
+private String userFilter;
+EValue("S(security. ldap.user-base)")
+private String userBase;
+@Value("$(secuinty.ldap.user-dn}")
+private String userDn;
+@Value ("$(app.enable.ldap)")
+private boolean enableLdap;
+eValue("${security.ldap.group-filter]")
+private String groupfilter;
+private final SessionFactory sessionFactory; private final JSONPersistenceService jos;
+
+
