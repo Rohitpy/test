@@ -1,138 +1,243 @@
+import uuid
+import ldap
+from typing import Dict, List, Set
+from datetime import datetime
+from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 import logging
-import json
-from typing import Dict, Any, List
-import pandas as pd
-from app.models.llm.llm_service import LLMService
-from app.models.database.db_manager import TeradataManager
+from threading import local
 
-logging.basicConfig(level=logging.INFO,
-                   format='%(asctime)s - %(levelname)s - %(message)s')
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
-# Hardcoded schema definition
-DOCUMENT_SCHEMA = {
-    "table_name": "DO_DOCUMENTS",
-    "columns": [
-        {"name": "DOC_ID", "type": "INTEGER", "description": "Unique identifier for the document"},
-        {"name": "TITLE", "type": "VARCHAR(255)", "description": "Document title"},
-        {"name": "FILE_TYPE", "type": "VARCHAR(50)", "description": "Type of document (PDF, DOCX, etc)"},
-        {"name": "CREATED_DATE", "type": "TIMESTAMP", "description": "Document creation date"},
-        {"name": "MODIFIED_DATE", "type": "TIMESTAMP", "description": "Last modification date"},
-        {"name": "AUTHOR", "type": "VARCHAR(100)", "description": "Document author"},
-        {"name": "DEPARTMENT", "type": "VARCHAR(100)", "description": "Department owning the document"},
-        {"name": "TAGS", "type": "VARCHAR(500)", "description": "Comma-separated tags"},
-        {"name": "STATUS", "type": "VARCHAR(50)", "description": "Document status (ACTIVE, ARCHIVED, etc)"}
-    ]
-}
+from app.core.config import settings
+from app.models.database.db_manager import get_db
+from app.utils.security.encryption import CryptionService
+from app.models.user import User, UserGroupMap, LDAPUserAutoCreation
 
-class FileMetadataService:
-    def __init__(self):
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+thread_local = local()
+
+@dataclass
+class CRUDObject:
+    table_name: str
+    phy_table_name: str
+    data: List[Dict] = None
+    persist_type: str = None
+
+class UserCreationProcessTrigger:
+    def __init__(
+        self,
+        db: Session = Depends(get_db),
+        crypto_service: CryptionService = Depends()
+    ):
+        self.db = db
+        self.crypto_service = crypto_service
+        self.user = settings.APP_DEFAULT_USER
+        self.ldap_url = settings.SECURITY_LDAP_URL
+        self.manager_dn = settings.SECURITY_LDAP_MANAGER_DN
+        self.manager_password = settings.SECURITY_LDAP_MANAGER_PASSWORD
+        self.user_filter = settings.SECURITY_LDAP_USER_FILTER
+        self.user_base = settings.SECURITY_LDAP_USER_BASE
+        self.user_dn = settings.SECURITY_LDAP_USER_DN
+        self.enable_ldap = settings.APP_ENABLE_LDAP
+        self.group_filter = settings.SECURITY_LDAP_GROUP_FILTER
+        self.scheduler = AsyncIOScheduler()
+        self.setup_scheduler()
+
+    def setup_scheduler(self):
+        """Setup the scheduler with tasks"""
+        self.scheduler.add_job(
+            self.execute_task,
+            trigger=IntervalTrigger(minutes=10),  # Same as Java's 600000ms
+            id='user_sync_task',
+            name='LDAP User Sync',
+            replace_existing=True
+        )
+        
+    def start_scheduler(self):
+        """Start the scheduler"""
+        self.scheduler.start()
+        logger.info("User Creation Process Scheduler started")
+
+    def stop_scheduler(self):
+        """Stop the scheduler"""
+        self.scheduler.shutdown()
+        logger.info("User Creation Process Scheduler stopped")
+
+    def _get_ldap_connection(self):
         try:
-            self.llm_service = LLMService()
-            self.db_manager = TeradataManager()
-            self.schema_prompt = self._format_schema_prompt()
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+            conn = ldap.initialize(self.ldap_url)
+            conn.simple_bind_s(
+                self.manager_dn,
+                self.crypto_service.decrypt(self.manager_password)
+            )
+            return conn
         except Exception as e:
-            logging.error(f"Failed to initialize FileMetadataService: {str(e)}")
+            logger.error(f"LDAP connection failed: {str(e)}")
             raise
 
-    def _format_schema_prompt(self) -> str:
-        """Format the schema into a prompt-friendly string"""
-        try:
-            prompt = f"Table Name: {DOCUMENT_SCHEMA['table_name']}\nColumns:\n"
-            for col in DOCUMENT_SCHEMA['columns']:
-                prompt += f"- {col['name']} ({col['type']}): {col['description']}\n"
-            return prompt
-        except Exception as e:
-            logging.error(f"Failed to format schema prompt: {str(e)}")
-            raise
+    async def execute_task(self):
+        """Main task that runs on schedule"""
+        logger.info("Checking for new users if any")
+        if not self.enable_ldap:
+            return
 
-    async def generate_sql_query(self, user_query: str) -> str:
-        """Generate SQL query using LLM based on schema and user query"""
         try:
-            prompt = f"""
-            Based on the following table schema, generate a Teradata SQL query for this user request.
+            # Get active users
+            users = self.db.execute(text("""
+                SELECT * FROM US_MST_USER_PROFILE WHERE STATUS = 'ACTIVE'
+            """)).fetchall()
             
-            {self.schema_prompt}
-            
-            User Query: {user_query}
-            
-            Return only the SQL query without any explanations.
-            """
-            return await self.llm_service.generate_response(prompt)
-        except Exception as e:
-            logging.error(f"Failed to generate SQL query: {str(e)}")
-            raise
+            user_map = {user.id: user for user in users if user.id != self.user}
 
-    def _format_results_for_llm(self, results: List[tuple], sql_query: str) -> str:
-        """Convert database results to a readable format for LLM"""
-        try:
-            columns = [col["name"] for col in DOCUMENT_SCHEMA["columns"]]
-            df = pd.DataFrame(results, columns=columns)
-            data_str = df.to_string() if not df.empty else "No results found"
-            
-            return f"""
-            SQL Query Executed: {sql_query}
-            
-            Query Results:
-            {data_str}
-            
-            Please provide a natural language summary of these results.
-            Focus on key information and any patterns or insights in the data.
-            """
-        except Exception as e:
-            logging.error(f"Failed to format results for LLM: {str(e)}")
-            raise
+            # Get LDAP details
+            ldap_details = self.db.execute(text("""
+                SELECT * FROM LDAP_USER_AUTO_CREATION WHERE STATUS = 'ACTIVE'
+            """)).fetchall()
 
-    async def _generate_human_readable_summary(self, results: List[tuple], sql_query: str) -> str:
-        """Generate human-readable summary of results using LLM"""
-        try:
-            prompt = self._format_results_for_llm(results, sql_query)
-            return await self.llm_service.generate_response(prompt)
-        except Exception as e:
-            logging.error(f"Failed to generate human readable summary: {str(e)}")
-            raise
+            ldap_conn = self._get_ldap_connection()
+            
+            cr_obj_user = CRUDObject(
+                table_name="User",
+                phy_table_name="US_MST_USER_PROFILE"
+            )
+            cr_obj_ug = CRUDObject(
+                table_name="UserUGRelation",
+                phy_table_name="US_MST_USER_GROUP_MAP"
+            )
 
-    async def validate_and_execute_query(self, sql_query: str, user_query: str) -> Dict[str, Any]:
-        """Execute query and handle errors with LLM assistance"""
-        try:
-            try:
-                results = await self.db_manager.execute_query_async(sql_query)
-                summary = await self._generate_human_readable_summary(results, sql_query)
+            data_user = []
+            data_ug_del = []
+            data_ug_add = []
+            already_processed = set()
+
+            for ldap_detail in ldap_details:
+                curr_grp_usr_list = set()
                 
-                return {
-                    "status": "success",
-                    "data": results,
-                    "sql_query": sql_query,
-                    "summary": summary,
-                    "raw_data": results
-                }
-            except Exception as query_error:
-                logging.error(f"Query execution failed: {str(query_error)}")
-                error_prompt = f"""
-                The SQL query failed with an error:
+                # Get existing user-group mappings
+                ug_users = self.db.execute(text("""
+                    SELECT * FROM US_MST_USER_GROUP_MAP 
+                    WHERE USER_GROUP_NAME = :group_name
+                """), {"group_name": ldap_detail.group_name}).fetchall()
                 
-                Original Query: {sql_query}
-                Schema: {self.schema_prompt}
-                User Request: {user_query}
-                Error: {str(query_error)}
-                
-                Please provide a corrected SQL query.
-                """
-                corrected_query = await self.llm_service.generate_response(error_prompt)
-                return await self.validate_and_execute_query(corrected_query, user_query)
-        except Exception as e:
-            logging.error(f"Failed to validate and execute query: {str(e)}")
-            raise
+                existing_users_ug = {user.user_id for user in ug_users}
 
-    async def get_metadata(self, user_query: str) -> Dict[str, Any]:
-        """Main method to process user queries"""
-        try:
-            sql_query = await self.generate_sql_query(user_query)
-            result = await self.validate_and_execute_query(sql_query, user_query)
-            return result
+                # Search LDAP for group members
+                search_filter = f"(&(objectclass=group)(cn={ldap_detail.group_name}))"
+                result = ldap_conn.search_s(
+                    ldap_detail.search_base,
+                    ldap.SCOPE_SUBTREE,
+                    search_filter,
+                    ["member"]
+                )
+
+                if result:
+                    for dn, attrs in result:
+                        if "member" in attrs:
+                            for member in attrs["member"]:
+                                member_attrs = ldap_conn.search_s(
+                                    member.decode(),
+                                    ldap.SCOPE_BASE,
+                                    "(objectClass=*)",
+                                    ["cn", "givenName", "sn", "mail"]
+                                )
+                                
+                                if member_attrs:
+                                    _, user_attrs = member_attrs[0]
+                                    user_id = user_attrs["cn"][0].decode()
+                                    curr_grp_usr_list.add(user_id)
+
+                                    if user_id in user_map:
+                                        already_processed.add(user_id)
+                                        user_map.pop(user_id)
+                                        continue
+
+                                    if user_id in already_processed:
+                                        continue
+
+                                    already_processed.add(user_id)
+                                    data_user.append({
+                                        "ID": user_id,
+                                        "FIRST_NAME": user_attrs["givenName"][0].decode(),
+                                        "LAST_NAME": user_attrs["sn"][0].decode(),
+                                        "EMAIL_ADDRESS": user_attrs["mail"][0].decode(),
+                                        "STATUS": "ACTIVE",
+                                        "USER_PASSWORD": "LKCL35M1rtGYnSMPOHNkrQ=="
+                                    })
+
+                # Process group memberships
+                self._process_group_memberships(
+                    curr_grp_usr_list,
+                    existing_users_ug,
+                    ldap_detail,
+                    data_ug_add,
+                    data_ug_del
+                )
+
+            # Save changes
+            if data_user:
+                cr_obj_user.data = data_user
+                self._process_data(cr_obj_user)
+
+            if data_ug_add:
+                cr_obj_ug.data = data_ug_add
+                self._process_data(cr_obj_ug)
+
+            if data_ug_del:
+                cr_obj_ug.data = data_ug_del
+                cr_obj_ug.persist_type = "DELETE"
+                self._process_delete_data_limited(cr_obj_ug)
+
         except Exception as e:
-            logging.error(f"Query processing failed: {str(e)}")
-            raise {
-                "status": "error",
-                "error": str(e),
-                "query": user_query
-            }
+            logger.error(f"Auto User Creation Failed: {str(e)}")
+        finally:
+            ldap_conn.unbind()
+            self.db.close()
+
+    def _process_group_memberships(
+        self,
+        curr_users: Set[str],
+        existing_users: Set[str],
+        ldap_detail: LDAPUserAutoCreation,
+        data_ug_add: List[Dict],
+        data_ug_del: List[Dict]
+    ):
+        """Process group membership changes"""
+        for user in curr_users:
+            if (user not in existing_users and 
+                (ldap_detail.action_type == "ALL" or ldap_detail.action_type == "ADD")):
+                data_ug_add.append({
+                    "USER_ID": user,
+                    "USER_GROUP_NAME": ldap_detail.group_name,
+                    "SYS_RECORD_STATE": "ACTIVE"
+                })
+
+        for user in existing_users:
+            if (user not in curr_users and 
+                (ldap_detail.action_type == "ALL" or ldap_detail.action_type == "DELETE")):
+                data_ug_del.append({
+                    "USER_ID": user,
+                    "USER_GROUP_NAME": ldap_detail.group_name,
+                    "SYS_RECORD_STATE": "DELETED"
+                })
+
+    def _process_data(self, crud_obj: CRUDObject):
+        """Process data changes"""
+        # Implement your data processing logic here
+        pass
+
+    def _process_delete_data_limited(self, crud_obj: CRUDObject):
+        """Process delete operations"""
+        # Implement your delete logic here
+        pass
+
+def create_scheduler():
+    trigger = UserCreationProcessTrigger()
+    return trigger
