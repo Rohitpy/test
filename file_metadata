@@ -1,243 +1,73 @@
-import uuid
-import ldap
-from typing import Dict, List, Set
-from datetime import datetime
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor
-import logging
-from threading import local
+import json
+2
+import os
+* login.py
+* decryption_v2.py
+from Idap? import Server, Connection, ALL, SUBTREE, ALL ATTRIBUTES
+4
+5
+6
+7
+•8
+9
+10
+11
+12
+13
+14
+15
+from decryption_v2 import decrypt_message from datetime import timedelta from datetime import datetime print(f"LOG : {datetime.now()} : "
+', end - " || *)
+with open(' encrypted_password. txt', 'r') as f:
+eng_pass - f.read()
+• Type here to search
+• 118
+trontena_vus
+Idap3_cron.py 1 x
+08
+(1 05812550json
+= encrypted password.trt
 
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+def
+get _group_names (list_groups):
 
-from app.core.config import settings
-from app.models.database.db_manager import get_db
-from app.utils.security.encryption import CryptionService
-from app.models.user import User, UserGroupMap, LDAPUserAutoCreation
+new_1s-[]
+16
+for name in list _groups:
+17
+new_ls. append (name-split(',')[0][3:])
+18
+return new_ls
+19
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+20
+def Idap_group_user_export (path_ad_groups, path) :
+21
+with open(path_ad_groups) as f:
+22
+ad_groups = json. load (f)
+23
+search_filter='(|'
+24
+for group in ad_groups.values():
+25
 
-thread_local = local()
+26
+search_filter+-*)*
+27
 
-@dataclass
-class CRUDObject:
-    table_name: str
-    phy_table_name: str
-    data: List[Dict] = None
-    persist_type: str = None
+28
+# print (search_filter)
+29
+server- Server (server, use_ssl-Tnue.get_info=ALL)
+30
 
-class UserCreationProcessTrigger:
-    def __init__(
-        self,
-        db: Session = Depends(get_db),
-        crypto_service: CryptionService = Depends()
-    ):
-        self.db = db
-        self.crypto_service = crypto_service
-        self.user = settings.APP_DEFAULT_USER
-        self.ldap_url = settings.SECURITY_LDAP_URL
-        self.manager_dn = settings.SECURITY_LDAP_MANAGER_DN
-        self.manager_password = settings.SECURITY_LDAP_MANAGER_PASSWORD
-        self.user_filter = settings.SECURITY_LDAP_USER_FILTER
-        self.user_base = settings.SECURITY_LDAP_USER_BASE
-        self.user_dn = settings.SECURITY_LDAP_USER_DN
-        self.enable_ldap = settings.APP_ENABLE_LDAP
-        self.group_filter = settings.SECURITY_LDAP_GROUP_FILTER
-        self.scheduler = AsyncIOScheduler()
-        self.setup_scheduler()
+31
+conn. bind()
+32
+# print (conn. bindo))
+0041
+140
 
-    def setup_scheduler(self):
-        """Setup the scheduler with tasks"""
-        self.scheduler.add_job(
-            self.execute_task,
-            trigger=IntervalTrigger(minutes=10),  # Same as Java's 600000ms
-            id='user_sync_task',
-            name='LDAP User Sync',
-            replace_existing=True
-        )
-        
-    def start_scheduler(self):
-        """Start the scheduler"""
-        self.scheduler.start()
-        logger.info("User Creation Process Scheduler started")
-
-    def stop_scheduler(self):
-        """Stop the scheduler"""
-        self.scheduler.shutdown()
-        logger.info("User Creation Process Scheduler stopped")
-
-    def _get_ldap_connection(self):
-        try:
-            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
-            conn = ldap.initialize(self.ldap_url)
-            conn.simple_bind_s(
-                self.manager_dn,
-                self.crypto_service.decrypt(self.manager_password)
-            )
-            return conn
-        except Exception as e:
-            logger.error(f"LDAP connection failed: {str(e)}")
-            raise
-
-    async def execute_task(self):
-        """Main task that runs on schedule"""
-        logger.info("Checking for new users if any")
-        if not self.enable_ldap:
-            return
-
-        try:
-            # Get active users
-            users = self.db.execute(text("""
-                SELECT * FROM US_MST_USER_PROFILE WHERE STATUS = 'ACTIVE'
-            """)).fetchall()
-            
-            user_map = {user.id: user for user in users if user.id != self.user}
-
-            # Get LDAP details
-            ldap_details = self.db.execute(text("""
-                SELECT * FROM LDAP_USER_AUTO_CREATION WHERE STATUS = 'ACTIVE'
-            """)).fetchall()
-
-            ldap_conn = self._get_ldap_connection()
-            
-            cr_obj_user = CRUDObject(
-                table_name="User",
-                phy_table_name="US_MST_USER_PROFILE"
-            )
-            cr_obj_ug = CRUDObject(
-                table_name="UserUGRelation",
-                phy_table_name="US_MST_USER_GROUP_MAP"
-            )
-
-            data_user = []
-            data_ug_del = []
-            data_ug_add = []
-            already_processed = set()
-
-            for ldap_detail in ldap_details:
-                curr_grp_usr_list = set()
-                
-                # Get existing user-group mappings
-                ug_users = self.db.execute(text("""
-                    SELECT * FROM US_MST_USER_GROUP_MAP 
-                    WHERE USER_GROUP_NAME = :group_name
-                """), {"group_name": ldap_detail.group_name}).fetchall()
-                
-                existing_users_ug = {user.user_id for user in ug_users}
-
-                # Search LDAP for group members
-                search_filter = f"(&(objectclass=group)(cn={ldap_detail.group_name}))"
-                result = ldap_conn.search_s(
-                    ldap_detail.search_base,
-                    ldap.SCOPE_SUBTREE,
-                    search_filter,
-                    ["member"]
-                )
-
-                if result:
-                    for dn, attrs in result:
-                        if "member" in attrs:
-                            for member in attrs["member"]:
-                                member_attrs = ldap_conn.search_s(
-                                    member.decode(),
-                                    ldap.SCOPE_BASE,
-                                    "(objectClass=*)",
-                                    ["cn", "givenName", "sn", "mail"]
-                                )
-                                
-                                if member_attrs:
-                                    _, user_attrs = member_attrs[0]
-                                    user_id = user_attrs["cn"][0].decode()
-                                    curr_grp_usr_list.add(user_id)
-
-                                    if user_id in user_map:
-                                        already_processed.add(user_id)
-                                        user_map.pop(user_id)
-                                        continue
-
-                                    if user_id in already_processed:
-                                        continue
-
-                                    already_processed.add(user_id)
-                                    data_user.append({
-                                        "ID": user_id,
-                                        "FIRST_NAME": user_attrs["givenName"][0].decode(),
-                                        "LAST_NAME": user_attrs["sn"][0].decode(),
-                                        "EMAIL_ADDRESS": user_attrs["mail"][0].decode(),
-                                        "STATUS": "ACTIVE",
-                                        "USER_PASSWORD": "LKCL35M1rtGYnSMPOHNkrQ=="
-                                    })
-
-                # Process group memberships
-                self._process_group_memberships(
-                    curr_grp_usr_list,
-                    existing_users_ug,
-                    ldap_detail,
-                    data_ug_add,
-                    data_ug_del
-                )
-
-            # Save changes
-            if data_user:
-                cr_obj_user.data = data_user
-                self._process_data(cr_obj_user)
-
-            if data_ug_add:
-                cr_obj_ug.data = data_ug_add
-                self._process_data(cr_obj_ug)
-
-            if data_ug_del:
-                cr_obj_ug.data = data_ug_del
-                cr_obj_ug.persist_type = "DELETE"
-                self._process_delete_data_limited(cr_obj_ug)
-
-        except Exception as e:
-            logger.error(f"Auto User Creation Failed: {str(e)}")
-        finally:
-            ldap_conn.unbind()
-            self.db.close()
-
-    def _process_group_memberships(
-        self,
-        curr_users: Set[str],
-        existing_users: Set[str],
-        ldap_detail: LDAPUserAutoCreation,
-        data_ug_add: List[Dict],
-        data_ug_del: List[Dict]
-    ):
-        """Process group membership changes"""
-        for user in curr_users:
-            if (user not in existing_users and 
-                (ldap_detail.action_type == "ALL" or ldap_detail.action_type == "ADD")):
-                data_ug_add.append({
-                    "USER_ID": user,
-                    "USER_GROUP_NAME": ldap_detail.group_name,
-                    "SYS_RECORD_STATE": "ACTIVE"
-                })
-
-        for user in existing_users:
-            if (user not in curr_users and 
-                (ldap_detail.action_type == "ALL" or ldap_detail.action_type == "DELETE")):
-                data_ug_del.append({
-                    "USER_ID": user,
-                    "USER_GROUP_NAME": ldap_detail.group_name,
-                    "SYS_RECORD_STATE": "DELETED"
-                })
-
-    def _process_data(self, crud_obj: CRUDObject):
-        """Process data changes"""
-        # Implement your data processing logic here
-        pass
-
-    def _process_delete_data_limited(self, crud_obj: CRUDObject):
-        """Process delete operations"""
-        # Implement your delete logic here
-        pass
-
-def create_scheduler():
-    trigger = UserCreationProcessTrigger()
-    return trigger
+search_filter+=f' (memberof=CN={group}, OU-SA, OU-HBEU Application Groups, OU-HBEU Applications, DC-HBEU, DC-ADROOT, DC-HSBC) *
+conn=Connection (server, user-'CN-SA-SVC-DATALAKEPROD, OU-DataLakePROD, OU-UNIX Service Accounts, OU-SA_All, OU-SA, OU-HBEU_GLOBAL, OU-Unix, DC-HBEU
