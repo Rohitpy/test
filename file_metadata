@@ -70,4 +70,50 @@ conn. bind()
 140
 
 search_filter+=f' (memberof=CN={group}, OU-SA, OU-HBEU Application Groups, OU-HBEU Applications, DC-HBEU, DC-ADROOT, DC-HSBC) *
-conn=Connection (server, user-'CN-SA-SVC-DATALAKEPROD, OU-DataLakePROD, OU-UNIX Service Accounts, OU-SA_All, OU-SA, OU-HBEU_GLOBAL, OU-Unix, DC-HBEU
+conn=Connection (server, user-'CN-SA-SVC-DATALAKEPROD, OU-DataLakePROD, OU-UNIX Service Accounts, OU-SA_All, OU-SA, OU-HBEU_GLOBAL, OU-Unix, DC-HBEU,DC-ADROOT DC-HSBC', password=decrypt _message(encrypted_b64-enc_pass,password='test12345*), auto_bind=True)
+conn. search(
+34
+search_base='DC-HBEU, DC=ADROOT, DC=HSBC' ,
+35
+search_filter-search_filter, 36
+search_scope-SUBTREE,
+37
+# attributes=ALL_ATTRIBUTES
+38
+attributes=[' cn', mail', 'sAMAccountName', ' memberOf' ]
+39
+40
+41
+42
+output_dir-path + '/user_jsons' 43
+os- makedirs(outputydir, exist_ok-True)
+44
+45
+46
+47
+48
+49
+50
+print(f"Entiries created or refreshed : {len(conn.entries)}")
+for entry in conn.entries:
+# breakpoint
+user_info - entry-entry_attributes_as_dict user_id-user_info['SAMAccountName' 1[®]
+51
+52
+53
+54
+55
+56
+user_data=f
+"name'suser_infol'cn*1 [0],
+'email':user_infol'mail ][0],
+userid':user_id,
+"memberof': get _group_names (user_infol'memberof'])
+57
+58
+59
+60
+61
+output_file = os. path. join(output _dir, f' (user_id}-json* )
+with open(output_file, 'w') as outfile:
+json.dump (user_data,outfile, indent=4)
