@@ -66,5 +66,38 @@ When translating to Teradata SQL, pay special attention to:
 Include detailed comments in the Teradata SQL code to explain your conversion decisions, especially for complex transformations. ‹ end_of_turn>
 ‹start_of_turn›user
 Please convert the SAS code to equivalent Teradata SOL code.
+turn>
+<start_of_turn›user
+Please convert the SAS code to equivalent Teradata SQL code.
+Kend_of turn>
+< start_of_turn>model\n\n***
+# Request and response models
+class ConversionRequest (BaseModel) :
+sas_code:
+str
+additional instructions: str = **
+explain: bool = False
+include_warnings: bool - True
+class ConversionWarning (BaseModel):
+severity: str
+# 'High', 'Medium',
+message: str
+line_number: Optionallint] = None
+suggestion: Optional(str] = None
+" Low'
+class ConversionResponse(BaseModel) :
+sql code:
+str
+explanation: Optional[str] = None
+warnings: Optional[List[ConversionWarning]] - None execution_time: float
+dialect: str = "SQL"
+EXPLANATION TEMPLATE - **'‹bos><start_of_turn›system
+You are an expert in SAS and Teradata SQL. A user has requested an explanation of how SAS code was converted to Teradata SQL.
+SAS code:
+*sas
+(sas_code)
 
+SOL code:
+sal
+Ln 100, Col 1
 
