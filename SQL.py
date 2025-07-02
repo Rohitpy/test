@@ -43,3 +43,28 @@ return LLMResult (generations=generations)
 app = FastAPI(title="SAS to Teradata SQL Converter", description="Converts SAS code to Teradata SQL")
 
 
+
+
+#Initialize LLM
+11m = GemmaBLLM)
+# Primary conversion template
+SAS_TO_SQL_TEMPLATE = ***<bos><start_of_turn›system
+You are an expert in both SAS and Teradata SQL. Your task is to
+convert SAS code to equivalent Teradata SQL code.
+SAS code:
+innsas
+isas_code,
+Your goal is to create accurate, maintainable Teradata SQL code that preserves the functionality of the original SAS code.
+{additional_ instruction}
+When translating to Teradata SQL, pay special attention to:
+1. Converting procedural SAS logic (especially DATA steps) to set-based SQL operations
+2. Using appropriate syntax for window functions
+3. Converting SAS functions to Teradata SQL functions
+4. Creating temporary tables for intermediate data
+5. Converting SAS macros and variables appropriately
+6. Implementing appropriate JOIN operations where needed
+Include detailed comments in the Teradata SQL code to explain your conversion decisions, especially for complex transformations. ‹ end_of_turn>
+‹start_of_turn›user
+Please convert the SAS code to equivalent Teradata SOL code.
+
+
