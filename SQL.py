@@ -198,6 +198,29 @@ result = explanation_chain.invoke(
 {"sas_code": sas_code, "sql_code": sal_code}
 return result.get ("text", ""). strip()
 @app.post("/convert", response model=ConversionResponse)
+async def convert code request: ConversionRequest) :
+*"Convert SAS code to Teradata SQL"""
+start_time = time. time()
+try:
+warnings = None
+if request. include warnings:
+warnings = identify_conversion warnings (request.sas_code)
+sql_code = convert_sas_to_sql(
+request. sas_code, request. additional _instructions
+# Generate explanation if requested
+explanation = None
+if request. explain:
+explanation = generate_explanation (request.sas_code, sql_code)
+except Exception as e:
+raise HTTPException( status_code=500,
+detail=f"Error during conversion: {str(e)}"
+end
+_time = time. time ()
+return ConversionResponse ( sql_code=sql
+_code,
+explanation=explanation, warnings=warnings,
+execution_time=end_time - start_time, dialect="SQL"
+)
 
 
 
