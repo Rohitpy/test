@@ -126,5 +126,25 @@ Return a JSON array with each potential issue containing:
 , or "Low")
 "line": number (approximate line number) or null if not applicable
 "message": string (clear explanation of the issue)
+"suggestion": string (constructive suggestion for addressing the issue)
+Focus on identifying conversion challenges:
+- Complex procedural logic that needs set-based alternatives
+- SAS-specific functions without direct Teradata SQL equivalents
+- Macro processing challenges in an Teradata SQL context
+- BY-group processing that needs to be converted to window functions
+- RETAIN statements that need alternatives in Teradata SQL
+- Format/informat usage that requires special handling in Teradata SQL
+- Potential data type differences between SAS and Teradata SQL
+Format your entire response as valid JSON only. <end_of_turn>
+< start_of_turn›user
+Identify potential conversion issues in this SAS code for Teradata SQL.
+‹end_of_turn›
+‹start_of_turn>model\n\n**"
+def identify_conversion warnings(sas_code: str) -> List[ConversionWarning]:
+"*"Identify potential conversion issues using LLM"™™
+prompt = PromptTemplate(
+input_variables=["sas_code"],
+template=WARNING_TEMPLATE
+)
 
 
