@@ -22,4 +22,24 @@ return t
 _11m_type(self) -> str:
 return "vilm"
 
-Type here to search
+def generate( self, prompts: List[strl,
+params: dict = {'temperature': 0.0, 'top_p': 1.0, "max_tokens': 1024,
+* skip_special_tokens*: True,
+'stop': ['Note', 'Please'], 'frequency_penalty': 1.4},
+stop: Optional[List[str]] = None,
+run_manager: Optional [CallbackManagerForLLMRun] = None,
+**kwargs: Any,
+) -> LLMResult:
+response = requests. post
+"http://173.1.125.212:8503/gemma3_generate*, j son=t
+"prompt": prompts,
+"kwargs": params
+outputs = response. json)
+generations = []
+for output in outputs:
+text = output [' outputs '][0]['text']
+generations .append([Generation(text=text)])
+return LLMResult (generations=generations)
+app = FastAPI(title="SAS to Teradata SQL Converter", description="Converts SAS code to Teradata SQL")
+
+
