@@ -146,5 +146,33 @@ prompt = PromptTemplate(
 input_variables=["sas_code"],
 template=WARNING_TEMPLATE
 )
+warning_chain - LLMChain(
+11m-11m, prompt-prompt,
+try:
+result - warning_chain. invoke({"sas_code": sas_code})
+warnings_text = result-get ("text", "[]"). strip()
+try:
+warnings_data = json.loads (warnings_text)
+warnings = [1
+for w in warnings _data:
+warnings.append (ConversionWarning(
+severity=w-get ("severity", "Medium"'), message-w-get ("message"
+"Unspecified issue"),
+line_number=w. get("line"), suggestion-w. get ("suggestion")
+return warnings
+except json.JSONDecodeError:
+return [ConversionWarning(
+severity="Medium"
+message="Could not analyze potential conversion issues. Manual review recommended." suggestion="Review the generated SQL carefully, especially for complex logic and functions."
+except Exception as e:
+return [ConversionWarning(
+severity="Medium"
+message=f"Error analyzing conversion issues: {str (e)}"
+suggestion-"Proceed with caution and test the generated Teradata SQL thoroughly."
+def convert_sas_to_sq](sas_code: str, additional _instructions: str = "') →> str:
+**"Convert SAS code to
+Teradata SQL using LLM"™"
+prompt = PromptTemplate(
+
 
 
