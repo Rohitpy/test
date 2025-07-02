@@ -94,10 +94,37 @@ dialect: str = "SQL"
 EXPLANATION TEMPLATE - **'‹bos><start_of_turn›system
 You are an expert in SAS and Teradata SQL. A user has requested an explanation of how SAS code was converted to Teradata SQL.
 SAS code:
-*sas
+'''sas
 (sas_code)
-
+'''
 SOL code:
-sal
-Ln 100, Col 1
+'''sql
+{sql_code}
+'''
+Provide a clear explanation of how the SAS code was converted to SQL, highlighting:
+1. How procedural SAS logic was converted to set-based SQL operations
+2. How SAS functions were mapped to Teradata SQL functions
+3. How SAS-specific features were handled in Teradata SOL
+4. Any optimizations that were used in the Teradata SQL code
+5. Potential performance considerations
+6. Any limitations or differences in behavior between the original SAS code and the Teradata SQL
+Focus on explaining the conversion decisions and reasoning rather than just describing the code.
+‹end_of_turn>
+< start_of_turn›user
+Please explain how the SAS code was converted to Teradata SQL code.
+‹end_of_turn>
+«start_of_turn›model\n\n****
+# Warning detection template
+WARNING_TEMPLATE = "*'<bos><start_of_turn›system
+You are an expert in SAS and Teradata SQL conversion.
+Analyze this SAS code and identify elements that may be challenging to convert accurately to Teradata SQL:
+sas
+(sas_code}
+Return a JSON array with each potential issue containing:
+"severity": string ("High",
+"Medium"
+, or "Low")
+"line": number (approximate line number) or null if not applicable
+"message": string (clear explanation of the issue)
+
 
