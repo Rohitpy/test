@@ -172,7 +172,33 @@ suggestion-"Proceed with caution and test the generated Teradata SQL thoroughly.
 def convert_sas_to_sq](sas_code: str, additional _instructions: str = "') →> str:
 **"Convert SAS code to
 Teradata SQL using LLM"™"
-prompt = PromptTemplate(
+prompt - PromptTemplate(
+input_variables-["sas_code"
+', "additional_instructions"],
+template-SAS_TO_SQL_TEMPLATE
+
+conversion_chain = LLChain (
+1lm=11m, prompt-prompt,
+
+result = conversion_chain. invoke(i
+"sas_code": sas_code,
+})
+"additional_instructions": additional instructions
+return result get ("text", "''). strip()
+def generate_explanation(sas_code: str, sql_code: str) -> str:
+"*'Generate an explanation of the SAS to Teradata SQL conversion""" prompt - PromptTemplate (
+input_variables=["sas_code", "sql_code"],
+template-EXPLANATION_TEMPLATE
+
+explanation_chain = LLMChain(
+12m=12m,
+prompt=prompt,
+
+result = explanation_chain.invoke(
+{"sas_code": sas_code, "sql_code": sal_code}
+return result.get ("text", ""). strip()
+@app.post("/convert", response model=ConversionResponse)
+
 
 
 
