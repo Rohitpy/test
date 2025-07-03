@@ -1,0 +1,7 @@
+Dissect Your Code: Break down SAS macros, data steps, and functions to understand their core logic.
+
+Prioritize SQL Conversion: Directly translate SAS SQL and data step code to BigQuery SQL wherever feasible.
+
+Adapt Macro Logic: Utilize UDFs, stored procedures, and templating engines to replicate macro functionalities.
+
+Find Function Substitutes: Identify BigQuery equivalents for SAS functions or create necessary UDFs.
