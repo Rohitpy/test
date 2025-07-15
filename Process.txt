@@ -1,0 +1,29 @@
+1.1	Identify GenAI use case and success KPIs	• Business Head and SME will identify key GenAI applications (chatbot, content generation, summarization, etc.)
+• Define measurable KPIs post-deployment (response quality, automation %, etc.)	Business Head	2 Sprints
+1.2	Define problem statement and response expectations	• SME to share a clear and concise prompt-response requirement
+• Include tone, format, accuracy expectations	Business SME	1 Sprint
+1.3	Collect domain-specific data	• SME identifies relevant documents, FAQs, chats, etc.
+• Data Scientist checks quality, format, and cleans the data	Data Scientist / SME	3 Sprints
+1.4	Prepare knowledge base / embeddings	• Prepare vector store if using RAG
+• Convert structured/unstructured data into embeddings
+• Ensure relevancy and retrieval effectiveness	Data Scientist	2 Sprints
+1.5	Prompt engineering & template design	• Design and test prompts for different scenarios
+• Use few-shot, chain-of-thought, or template-based prompts as per use case	GenAI Engineer	2 Sprints
+1.6	Fine-tuning / RAG implementation	• Fine-tune model (if required) on custom data
+• Implement RAG pipeline for knowledge-grounded answers	GenAI Engineer	3 Sprints
+1.7	Evaluation and feedback	• Perform evaluation using test prompts
+• SME to provide feedback on relevance, tone, and hallucinations
+• Refine model or prompts accordingly	Data Scientist / SME	2 Sprints
+1.8	Model Validation	• Validate model performance on internal and out-of-sample data
+• Communicate accuracy, coherence, and robustness to SME	Data Scientist	½ Sprint
+1.9	Reporting & Communication	• Dashboard to show GenAI performance (e.g., prompt latency, feedback scores, usage stats)
+• Final sign-off from SME	Data Scientist / Visualization / SME	½ Sprint
+1.10	Production Deployment	• Deploy GenAI solution as API, chatbot, or within workflow
+• Ensure access control, monitoring, rollback plans	Data Engineer / GenAI Engg	1 Sprint
+1.11	Monitoring & Maintenance	• Continuously monitor performance, usage, and hallucinations
+• Update prompts/models as needed
+• Retrain or re-index as feedback evolves	Data Scientist	1 Sprint
+1.12	ROI & Benefit Calculation	• Measure effort saved, customer satisfaction, cost reduction
+• Present ROI metrics post-implementation	Business SME / Data Scientist	Measured over time
+Would you like this in a Word table or Excel format for easy reuse? Or broken down into JIRA Epics/Stories format for agile tools?
+
