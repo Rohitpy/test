@@ -1,0 +1,40 @@
+from apscheduler.schedulers.background import BackgroundScheduler
+import pandas as pd
+import requests
+
+scheduler = BackgroundScheduler()
+batch_index = 0  # Track which batch to process
+
+UPLOAD_URL = "http://localhost:8000/upload"  # Change if your FastAPI runs elsewhere
+
+def read_excel(file_path: str):
+    df = pd.read_excel(file_path)
+    return df[['filename', 'category', 'uploader']].to_dict(orient='records')
+
+def upload_files(excel_file_path: str):
+    global batch_index
+    file_info_list = read_excel(excel_file_path)
+    start = batch_index * 10
+    end = start + 10
+    batch = file_info_list[start:end]
+    if not batch:
+        batch_index = 0  # Reset if done
+        return
+    for file_info in batch:
+        file_path = file_info['filename']
+        category = file_info['category']
+        uploader = file_info['uploader']
+        try:
+            with open(file_path, 'rb') as f:
+                files = {'file': (file_info['filename'], f)}
+                data = {'filename': file_info['filename'], 'category': category}
+                response = requests.post(UPLOAD_URL, files=files, data=data)
+                print(f"Uploaded {file_info['filename']}: {response.status_code}")
+        except Exception as e:
+            print(f"Failed to upload {file_info['filename']}: {e}")
+    batch_index += 1
+
+def schedule_file_uploads(excel_file_path: str):
+    scheduler.add_job(upload_files, 'interval', hours=2, args=[excel_file_path])
+
+scheduler.start()
